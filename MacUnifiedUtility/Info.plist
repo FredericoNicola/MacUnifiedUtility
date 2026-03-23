@@ -30,5 +30,10 @@
 	<string>MacUnifiedUtility uses Apple Events for display configuration.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>SMPrivilegedExecutables</key>
+	<dict>
+		<key>com.macunifiedutility.helper</key>
+		<string>identifier "com.macunifiedutility.helper" and anchor apple generic</string>
+	</dict>
 </dict>
 </plist>

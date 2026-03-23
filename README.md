@@ -14,8 +14,8 @@ A single **macOS menu bar app** replacing multiple standalone utilities:
 |---------|--------|-------|
 | Display resolution switching | ✅ Implemented | Quartz Display Services / CoreGraphics public API |
 | Scroll reversal (mouse & trackpad) | ✅ Implemented | CGEvent tap, requires Accessibility permission |
-| Temperature monitoring | ✅ Implemented | Read-only SMC access via IOKit |
-| Battery charge limit (80%) | ⚠️ Experimental | SMC write (`BCLM` key), unofficial — use at own risk |
+| Temperature monitoring | ✅ Implemented | Read-only SMC access via IOKit; ~40 keys covering Intel + Apple Silicon (M1/M2/M3/M4) |
+| Battery charge limit (80%) | ⚠️ Experimental | SMC write (`BCLM` key) via SMJobBless helper tool (root), unofficial — use at own risk |
 
 ---
 
@@ -33,16 +33,23 @@ MacUnifiedUtility/
     │   │   ├── ScrollManager.swift     ← CGEvent tap installation/removal
     │   │   └── ScrollSettingsView.swift
     │   ├── Thermal/
-    │   │   ├── SMCHelper.swift         ← Low-level SMC read via IOKit
+    │   │   ├── SMCHelper.swift         ← Low-level SMC read via IOKit (Intel + Apple Silicon keys)
     │   │   ├── ThermalMonitor.swift    ← Observable polling monitor
     │   │   └── ThermalMonitorView.swift
     │   └── Battery/
-    │       ├── BatteryManager.swift    ← IOKit Power Sources + SMC write
+    │       ├── BatteryManager.swift    ← IOKit Power Sources + SMC write (via helper)
     │       └── BatteryView.swift
     └── Shared/
         ├── SMCKit.swift                ← Shared SMC communication layer
         ├── PermissionsHelper.swift     ← Accessibility permission check/prompt
-        └── SharedViews.swift           ← Reusable SwiftUI components
+        ├── SharedViews.swift           ← Reusable SwiftUI components
+        ├── PrivilegedSMCWriter.swift   ← SMC write dispatcher (unprivileged + helper)
+        ├── PrivilegedHelperProtocol.swift ← XPC protocol shared by app and helper
+        └── PrivilegedHelperManager.swift  ← SMJobBless installer + XPC client
+HelperTool/
+    ├── main.swift                      ← Privileged helper entry point (runs as root)
+    ├── com.macunifiedutility.helper-Info.plist    ← Helper bundle info
+    └── com.macunifiedutility.helper-Launchd.plist ← launchd service definition
 ```
 
 ### Tech Stack
@@ -111,11 +118,16 @@ You can also grant it manually in **System Settings → Privacy & Security → A
 
 ### ✅ Phase 3 – Temperature monitoring (read-only)
 - IOKit connection to `AppleSMC` service
-- Polls known SMC keys (`TC0P`, `TC0D`, `TG0D`, etc.) on a configurable timer
+- Polls ~40 known SMC keys on a configurable timer covering Intel (`TC0P`, `TC0D`, `TG0D`, etc.) and Apple Silicon M1/M2/M3/M4 (`Tp09`, `Tp01`, `Tg05`, etc.)
+- Dynamic CPU temperature summary checks Intel and Apple Silicon keys automatically
 
 ### ✅ Phase 4 – Battery limiting (experimental)
 - IOKit Power Sources for real-time battery status
 - Experimental SMC write to `BCLM` key (Battery Charge Level Maximum)
+- Privileged helper tool (`com.macunifiedutility.helper`) installed via **SMJobBless**
+  - Runs as root under launchd for reliable IOKit write access
+  - XPC-based communication between app and helper
+  - Helper is installed on demand when the user clicks "Install" in Battery view
 
 ---
 
