@@ -13,35 +13,60 @@ struct BatteryView: View {
             // ── Header ────────────────────────────────────────────────
             SectionHeader(icon: "battery.75", title: "Battery")
 
-            // ── Status ────────────────────────────────────────────────
-            GroupBox {
+            // ── Status Card ───────────────────────────────────────────
+            CardView {
                 VStack(alignment: .leading, spacing: 10) {
                     if let pct = manager.chargePercent {
-                        HStack {
-                            batteryIcon(percent: pct)
-                                .font(.largeTitle)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("\(pct)%")
-                                    .font(.largeTitle)
-                                    .fontWeight(.bold)
-                                Text(manager.isCharging ? "Charging" : (manager.isPluggedIn ? "Plugged In (Full)" : "Discharging"))
-                                    .foregroundColor(.secondary)
-                                    .font(.subheadline)
+                        HStack(spacing: 14) {
+                            // Circular gauge
+                            ZStack {
+                                Circle()
+                                    .stroke(Color.primary.opacity(0.08), lineWidth: 5)
+                                Circle()
+                                    .trim(from: 0, to: CGFloat(pct) / 100.0)
+                                    .stroke(progressColor(percent: pct),
+                                            style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                                    .rotationEffect(.degrees(-90))
+                                Text("\(pct)")
+                                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                                    .foregroundStyle(progressColor(percent: pct))
                             }
+                            .frame(width: 52, height: 52)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("\(pct)%")
+                                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                                HStack(spacing: 6) {
+                                    TagBadge(
+                                        text: manager.isCharging ? "Charging" : (manager.isPluggedIn ? "Plugged In" : "Discharging"),
+                                        color: manager.isCharging ? .green : (manager.isPluggedIn ? .blue : .orange)
+                                    )
+                                }
+                            }
+
                             Spacer()
-                            Button("Refresh") { manager.refresh() }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
+
+                            Button {
+                                manager.refresh()
+                            } label: {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
                         }
 
                         ProgressView(value: Double(pct), total: 100)
                             .tint(progressColor(percent: pct))
                     } else {
-                        Label("No battery detected.", systemImage: "battery.slash")
-                            .foregroundColor(.secondary)
+                        HStack(spacing: 8) {
+                            Image(systemName: "battery.slash")
+                                .foregroundStyle(.secondary)
+                            Text("No battery detected.")
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
-                .padding(6)
             }
 
             // ── Error/Info Messages ───────────────────────────────────
@@ -49,75 +74,83 @@ struct BatteryView: View {
                 ErrorBanner(message: error)
             }
             if let message = manager.lastMessage {
-                HStack {
+                HStack(spacing: 6) {
                     Image(systemName: "info.circle")
-                        .foregroundColor(.blue)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.blue)
                     Text(message)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
                 }
             }
 
-            // ── Experimental Charge Limit ─────────────────────────────
-            GroupBox {
+            // ── Experimental Charge Limit Card ────────────────────────
+            CardView {
                 VStack(alignment: .leading, spacing: 10) {
-                    HStack {
+                    HStack(spacing: 6) {
                         Image(systemName: "exclamationmark.triangle")
-                            .foregroundColor(.orange)
+                            .foregroundStyle(.orange)
+                            .font(.system(size: 13))
                         Text("Experimental Feature")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
+                            .font(.system(size: 13, weight: .semibold))
                         Spacer()
                     }
 
                     Text("Charge limiting writes to the SMC and is **not officially supported by Apple**. Use at your own risk. Not all hardware is supported.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
 
                     Divider()
 
                     Toggle("Enable charge limit", isOn: $manager.isChargeLimitEnabled)
-                        .font(.subheadline)
+                        .font(.system(size: 13))
 
                     if manager.isChargeLimitEnabled {
                         HStack {
                             Text("Limit:")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
+                                .font(.system(size: 13))
+                                .foregroundStyle(.secondary)
                             Slider(value: Binding(
                                 get: { Double(manager.chargeLimitPercent) },
                                 set: { manager.chargeLimitPercent = Int($0) }
                             ), in: 60...100, step: 5)
                             Text("\(manager.chargeLimitPercent)%")
-                                .font(.subheadline)
-                                .monospacedDigit()
+                                .font(.system(size: 13, design: .monospaced))
                                 .frame(width: 40, alignment: .trailing)
                         }
                     }
 
-                    if !PrivilegedHelperManager.shared.isHelperInstalled {
+                    // ── Privileges section ─────────────────────────────
+                    if !PrivilegedHelperManager.shared.hasRootAccess {
                         Divider()
-                        HStack {
-                            Image(systemName: "lock.shield")
-                                .foregroundColor(.blue)
+                        HStack(spacing: 10) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(.blue.opacity(0.12))
+                                    .frame(width: 36, height: 36)
+                                Image(systemName: "lock.shield")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundStyle(.blue)
+                            }
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Privileged Helper Required")
-                                    .font(.subheadline)
-                                    .fontWeight(.medium)
-                                Text("Writing to SMC requires a helper tool running with administrator privileges. Click Install to set it up.")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
+                                Text("Admin Privileges Required")
+                                    .font(.system(size: 13, weight: .semibold))
+                                Text("Charge limiting requires elevated privileges to write to the SMC.")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
                             }
                             Spacer()
-                            Button("Install") {
-                                PrivilegedHelperManager.shared.installHelper()
+                            Button {
+                                PrivilegedHelperManager.shared.relaunchWithPrivileges()
+                            } label: {
+                                Label("Relaunch as Admin", systemImage: "arrow.clockwise")
+                                    .font(.system(size: 12, weight: .medium))
                             }
                             .buttonStyle(.borderedProminent)
                             .controlSize(.small)
                         }
                     }
                 }
-                .padding(6)
             }
 
             Spacer()
@@ -127,18 +160,6 @@ struct BatteryView: View {
     }
 
     // MARK: - Helpers
-
-    private func batteryIcon(percent: Int) -> Text {
-        let name: String
-        switch percent {
-        case 90...100: name = "battery.100"
-        case 65..<90:  name = "battery.75"
-        case 40..<65:  name = "battery.50"
-        case 15..<40:  name = "battery.25"
-        default:       name = "battery.0"
-        }
-        return Text(Image(systemName: name))
-    }
 
     private func progressColor(percent: Int) -> Color {
         switch percent {

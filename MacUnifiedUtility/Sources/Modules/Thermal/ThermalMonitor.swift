@@ -10,8 +10,11 @@ final class ThermalMonitor: ObservableObject {
 
     // MARK: - Published State
 
-    /// Current temperature readings for all available sensors.
+    /// Current temperature readings for all available sensors (known keys).
     @Published var readings: [TemperatureReading] = []
+
+    /// Temperature readings found via dynamic key discovery (Apple Silicon fallback).
+    @Published var dynamicReadings: [DynamicTemperatureReading] = []
 
     /// `true` while SMC is available and polling is running.
     @Published var isMonitoring = false
@@ -36,6 +39,12 @@ final class ThermalMonitor: ObservableObject {
         ]
         if let cpu = readings.first(where: { cpuKeys.contains($0.key) }) {
             return cpu.formattedValue
+        }
+        // Check dynamic readings for CPU-like keys
+        if let dynamic = dynamicReadings.first(where: {
+            $0.key.hasPrefix("TC") || $0.key.hasPrefix("Tp")
+        }) {
+            return dynamic.formattedValue
         }
         return unavailableReason != nil ? "Unavailable" : "–"
     }
@@ -94,21 +103,37 @@ final class ThermalMonitor: ObservableObject {
 
     private func poll() {
         guard let smc = smcHelper else { return }
-        let newReadings = SMCTemperatureKey.allCases.compactMap { key -> TemperatureReading? in
+
+        // Try known keys first.
+        let knownReadings = SMCTemperatureKey.allCases.compactMap { key -> TemperatureReading? in
             guard let value = smc.temperature(for: key) else { return nil }
             return TemperatureReading(key: key, value: value)
         }
 
-        if newReadings.isEmpty {
-            unavailableReason = """
-                SMC connected but no sensors responded. \
-                On Apple Silicon Macs some sensor keys differ from Intel. \
-                The app may need updated sensor keys for your hardware.
-                """
-            stopMonitoring()
-        } else {
+        if !knownReadings.isEmpty {
+            readings        = knownReadings
+            dynamicReadings = []
             unavailableReason = nil
-            readings = newReadings
+        } else {
+            // Fallback: discover sensors dynamically (handles Apple Silicon models
+            // whose keys are not yet in the SMCTemperatureKey enum).
+            let discovered = smc.discoverTemperatureSensors()
+            if !discovered.isEmpty {
+                readings        = []
+                dynamicReadings = discovered.map {
+                    DynamicTemperatureReading(key: $0.key, displayName: $0.displayName, value: $0.value)
+                }
+                unavailableReason = nil
+            } else {
+                readings          = []
+                dynamicReadings   = []
+                unavailableReason = """
+                    SMC connected but no temperature sensors were found. \
+                    This may indicate the app needs to run without App Sandbox, \
+                    or your hardware uses different sensor types.
+                    """
+                stopMonitoring()
+            }
         }
     }
 
@@ -116,5 +141,19 @@ final class ThermalMonitor: ObservableObject {
         guard isMonitoring else { return }
         stopMonitoring()
         startMonitoring()
+    }
+}
+
+// MARK: - Dynamic Temperature Reading
+
+/// A temperature reading discovered at runtime via SMC key enumeration.
+struct DynamicTemperatureReading: Identifiable {
+    let id          = UUID()
+    let key:         String
+    let displayName: String
+    let value:       Double
+
+    var formattedValue: String {
+        String(format: "%.1f °C", value)
     }
 }

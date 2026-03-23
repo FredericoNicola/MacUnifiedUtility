@@ -96,31 +96,26 @@ final class BatteryManager: ObservableObject {
 
     /// Attempt to write the charge limit to SMC key `BCLM`.
     ///
-    /// Tries a direct write first; if that fails, uses the SMJobBless
-    /// privileged helper tool running as root.
+    /// Tries a direct write; if that fails and we're not root, surfaces a
+    /// message prompting the user to relaunch with elevated privileges.
     ///
     /// > This is experimental and may silently fail on unsupported hardware.
     private func applyChargeLimitIfNeeded() {
         lastError = nil
         guard isChargeLimitEnabled else {
             lastMessage = "Charge limit disabled – battery will charge to 100%."
-            Task {
-                let result = await PrivilegedSMCWriter.writeChargeLimitPrivileged(100, using: smcKit)
-                if !result.success, let err = result.error {
-                    lastError = err
-                }
-            }
+            _ = PrivilegedSMCWriter.writeChargeLimit(100, using: smcKit)
             return
         }
 
         let target = chargeLimitPercent
-        Task {
-            let result = await PrivilegedSMCWriter.writeChargeLimitPrivileged(target, using: smcKit)
-            if result.success {
-                lastMessage = "Charge limit set to \(target)% via SMC."
-            } else {
-                lastError = result.error ?? "Could not write charge limit to SMC. Please install the privileged helper tool."
-            }
+        let result = PrivilegedSMCWriter.writeChargeLimit(target, using: smcKit)
+        if result.success {
+            lastMessage = "Charge limit set to \(target)% via SMC."
+        } else if result.needsPrivileges {
+            lastError = "Administrator privileges required. Relaunch the app with elevated privileges to enable charge limiting."
+        } else {
+            lastError = result.error ?? "Could not write charge limit. This feature may not be supported on your hardware."
         }
     }
 }
