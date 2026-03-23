@@ -1,10 +1,7 @@
 import Foundation
-import Security
 
-/// Attempts to write an SMC charge-limit value with elevated privileges.
-///
-/// First tries a direct (unprivileged) write. If that fails, uses the
-/// SMJobBless privileged helper tool running as root to perform the write.
+/// Attempts to write an SMC charge-limit value, with clear feedback
+/// about privilege requirements.
 enum PrivilegedSMCWriter {
 
     // MARK: - Result
@@ -12,46 +9,46 @@ enum PrivilegedSMCWriter {
     struct WriteResult {
         let success: Bool
         let error: String?
+        let needsPrivileges: Bool
     }
 
     // MARK: - Public API
 
-    /// Write `percent` to SMC key `BCLM`, escalating privileges if needed.
+    /// Write `percent` to SMC key `BCLM`.
     ///
     /// - Parameters:
     ///   - percent: Target charge limit (0–100).
-    ///   - smcKit: An existing `SMCKit` connection, or `nil` to create a new one.
-    /// - Returns: A `WriteResult` indicating success and an optional error message.
+    ///   - smcKit: An existing `SMCKit` connection, or `nil`.
+    /// - Returns: A `WriteResult` indicating success, an optional error message,
+    ///            and whether elevated privileges are required.
     @MainActor
     static func writeChargeLimit(_ percent: Int, using smcKit: SMCKit?) -> WriteResult {
         guard percent >= 0, percent <= 100 else {
-            return WriteResult(success: false, error: "Charge limit must be between 0 and 100.")
+            return WriteResult(success: false,
+                               error: "Charge limit must be between 0 and 100.",
+                               needsPrivileges: false)
         }
 
-        // Attempt unprivileged write first (succeeds when sandbox is off and
-        // firmware allows it).
+        // Try direct write (succeeds when running as root or firmware allows it).
         if let smc = smcKit, smc.writeChargeLimitPercent(percent) {
-            return WriteResult(success: true, error: nil)
+            return WriteResult(success: true, error: nil, needsPrivileges: false)
         }
 
-        // Unprivileged write failed — indicate the privileged helper should be used.
+        // Direct write failed.
+        if getuid() == 0 {
+            // We're root but the write still failed — hardware may not support BCLM.
+            return WriteResult(
+                success: false,
+                error: "SMC write failed. The BCLM key may not be supported on this hardware.",
+                needsPrivileges: false
+            )
+        }
+
+        // Not root — needs elevation.
         return WriteResult(
             success: false,
-            error: nil  // nil error = should try privileged helper
+            error: "Writing to the BCLM SMC key requires administrator privileges.",
+            needsPrivileges: true
         )
-    }
-
-    /// Async version that uses the privileged helper tool for root-level SMC writes.
-    @MainActor
-    static func writeChargeLimitPrivileged(_ percent: Int, using smcKit: SMCKit?) async -> WriteResult {
-        // Try unprivileged first
-        let unprivResult = writeChargeLimit(percent, using: smcKit)
-        if unprivResult.success {
-            return unprivResult
-        }
-
-        // Use privileged helper
-        let helperResult = await PrivilegedHelperManager.shared.writeChargeLimit(percent)
-        return WriteResult(success: helperResult.success, error: helperResult.error)
     }
 }

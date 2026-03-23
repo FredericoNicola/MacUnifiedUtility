@@ -145,12 +145,16 @@ final class SMCHelper {
 
     /// The single method index used for all SMC operations via IOConnectCallStructMethod.
     /// The actual operation (GetKeyInfo, GetKeyValue, SetKeyValue) is encoded in `data8`.
-    private static let kSMCHandleYPCEvent: UInt32 = 2
+    private static let kSMCHandleYPCEvent:   UInt32 = 2
 
     private static let kSMCUserClientOpen:   UInt32 = 0
     private static let kSMCUserClientClose:  UInt32 = 1
     private static let kSMCGetKeyInfo:       UInt32 = 9
     private static let kSMCGetKeyValue:      UInt32 = 5
+    private static let kSMCGetKeyFromIndex:  UInt32 = 8
+
+    /// Maximum number of SMC keys to enumerate during dynamic sensor discovery.
+    private static let maxSMCKeyCount:       UInt32 = 1_000
 
     // MARK: - SMC Structures (must match kernel layout exactly)
     // Default zero values allow no-argument initialization: SMCParamStruct()
@@ -233,6 +237,68 @@ final class SMCHelper {
     /// Returns `nil` if the key is not supported on this machine.
     func readArbitraryTemperature(key: String) -> Double? {
         readTemperature(key: key)
+    }
+
+    /// Discover all available temperature sensor keys dynamically.
+    ///
+    /// Reads the total key count via the `#KEY` meta-key, then iterates through
+    /// every key by index using `kSMCGetKeyFromIndex`. Any key whose name starts
+    /// with `T` that returns a valid `sp78` temperature reading is included.
+    ///
+    /// - Returns: An array of `(key, displayName, value)` tuples for all live
+    ///            temperature sensors found on this hardware.
+    func discoverTemperatureSensors() -> [(key: String, displayName: String, value: Double)] {
+        var results: [(key: String, displayName: String, value: Double)] = []
+
+        // Step 1: Get the total number of SMC keys from the #KEY meta-key.
+        var countInput  = SMCParamStruct()
+        var countOutput = SMCParamStruct()
+        countInput.key   = fourCharCode("#KEY")
+        countInput.data8 = UInt8(Self.kSMCGetKeyInfo)
+
+        guard callSMC(input: &countInput, output: &countOutput) == kIOReturnSuccess else {
+            return results
+        }
+
+        // The key count is stored big-endian in the first 4 bytes of the output.
+        let keyCount = UInt32(countOutput.bytes.0) << 24
+                     | UInt32(countOutput.bytes.1) << 16
+                     | UInt32(countOutput.bytes.2) << 8
+                     | UInt32(countOutput.bytes.3)
+
+        guard keyCount > 0 else { return results }
+
+        // Step 2: Iterate through all keys by index (cap at maxSMCKeyCount for safety).
+        for i in 0..<min(keyCount, Self.maxSMCKeyCount) {
+            var indexInput  = SMCParamStruct()
+            var indexOutput = SMCParamStruct()
+            indexInput.data8  = UInt8(Self.kSMCGetKeyFromIndex)
+            indexInput.data32 = i
+
+            guard callSMC(input: &indexInput, output: &indexOutput) == kIOReturnSuccess else {
+                continue
+            }
+
+            // Decode the 4-char key from the output's `key` field.
+            let keyCode = indexOutput.key
+            let chars: [Character] = [
+                Character(UnicodeScalar(UInt8((keyCode >> 24) & 0xFF))),
+                Character(UnicodeScalar(UInt8((keyCode >> 16) & 0xFF))),
+                Character(UnicodeScalar(UInt8((keyCode >> 8)  & 0xFF))),
+                Character(UnicodeScalar(UInt8( keyCode        & 0xFF)))
+            ]
+            let keyString = String(chars)
+
+            // Temperature keys start with 'T'.
+            guard keyString.hasPrefix("T") else { continue }
+
+            if let temp = readTemperature(key: keyString) {
+                let name = SMCTemperatureKey(rawValue: keyString)?.displayName ?? keyString
+                results.append((key: keyString, displayName: name, value: temp))
+            }
+        }
+
+        return results
     }
 
     // MARK: - Private Helpers

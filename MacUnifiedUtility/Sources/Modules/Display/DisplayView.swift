@@ -39,8 +39,14 @@ struct DisplayView: View {
             // ── Refresh Button ────────────────────────────────────────
             HStack {
                 Spacer()
-                Button("Refresh") { manager.refresh() }
-                    .buttonStyle(.bordered)
+                Button {
+                    manager.refresh()
+                } label: {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
             }
         }
         .padding()
@@ -59,41 +65,34 @@ private struct DisplayRow: View {
     @State private var selectedMode: CGDisplayMode?
 
     var body: some View {
-        GroupBox {
-            VStack(alignment: .leading, spacing: 8) {
-                // Display Name
-                HStack {
+        CardView {
+            VStack(alignment: .leading, spacing: 10) {
+                // Display name + icon
+                HStack(spacing: 8) {
                     Image(systemName: "display")
-                        .foregroundColor(.accentColor)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(.accentColor)
                     Text(display.name)
-                        .font(.headline)
-                }
-
-                // Current Resolution
-                if let current = display.currentMode {
-                    HStack {
-                        Text("Current:")
-                            .foregroundColor(.secondary)
-                            .font(.subheadline)
-                        Text(current.label)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
+                        .font(.system(size: 14, weight: .semibold))
+                    Spacer()
+                    if let current = display.currentMode {
+                        TagBadge(text: current.label, color: .accentColor)
                     }
                 }
 
                 Divider()
 
-                // Resolution Picker
+                // Resolution picker
                 HStack {
                     Text("Switch to:")
-                        .foregroundColor(.secondary)
-                        .font(.subheadline)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
                     Picker("", selection: $selectedMode) {
                         Text("Select a mode…")
-                            .tag(nil as CGDisplayMode?)       // ← matches the nil initial state
+                            .tag(nil as CGDisplayMode?)
                         ForEach(display.availableModes, id: \.self) { mode in
                             Text(mode.label)
-                                .tag(Optional(mode))          // already correct
+                                .tag(Optional(mode))
                         }
                     }
                     .labelsHidden()
@@ -105,10 +104,10 @@ private struct DisplayRow: View {
                         }
                     }
                     .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
                     .disabled(selectedMode == nil)
                 }
             }
-            .padding(6)
         }
         .onAppear {
             selectedMode = display.availableModes.first

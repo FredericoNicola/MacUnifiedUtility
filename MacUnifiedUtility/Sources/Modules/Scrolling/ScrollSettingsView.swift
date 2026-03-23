@@ -9,7 +9,7 @@ struct ScrollSettingsView: View {
     @EnvironmentObject private var manager: ScrollManager
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 16) {
 
             // ── Header ────────────────────────────────────────────────
             SectionHeader(icon: "arrow.up.and.down", title: "Scroll Reversal")
@@ -20,15 +20,21 @@ struct ScrollSettingsView: View {
             }
 
             // ── Status & Master Toggle ────────────────────────────────
-            GroupBox {
+            CardView {
                 VStack(alignment: .leading, spacing: 10) {
-                    HStack {
+                    HStack(spacing: 10) {
+                        StatusDot(
+                            isActive: manager.isReversalActive,
+                            activeColor: .green
+                        )
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Scroll Reversal")
-                                .font(.headline)
-                            Text(manager.isReversalActive ? "Active – intercepting scroll events" : "Inactive")
-                                .font(.subheadline)
-                                .foregroundColor(manager.isReversalActive ? .green : .secondary)
+                                .font(.system(size: 13, weight: .semibold))
+                            Text(manager.isReversalActive
+                                 ? "Active – intercepting scroll events"
+                                 : "Inactive")
+                                .font(.system(size: 11))
+                                .foregroundStyle(manager.isReversalActive ? .green : .secondary)
                         }
                         Spacer()
                         Toggle("", isOn: Binding(
@@ -41,40 +47,44 @@ struct ScrollSettingsView: View {
 
                     Divider()
 
-                    // ── Per-Device Toggles ────────────────────────────
                     Text("Apply reversal to:")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
 
                     Toggle("🖱 Mouse (scroll wheel)", isOn: $manager.reverseMouse)
+                        .font(.system(size: 13))
                         .padding(.leading, 8)
 
                     Toggle("⌨️ Trackpad (gestures)", isOn: $manager.reverseTrackpad)
+                        .font(.system(size: 13))
                         .padding(.leading, 8)
                 }
-                .padding(6)
             }
 
             // ── Permission Note ───────────────────────────────────────
-            GroupBox {
-                HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "lock.shield")
-                        .foregroundColor(.orange)
+            CardView {
+                HStack(alignment: .top, spacing: 10) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(.orange.opacity(0.12))
+                            .frame(width: 36, height: 36)
+                        Image(systemName: "lock.shield")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(.orange)
+                    }
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Accessibility Permission Required")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
+                            .font(.system(size: 13, weight: .semibold))
                         Text("CGEvent taps require Accessibility access. If scroll reversal fails to activate, open System Settings → Privacy & Security → Accessibility and enable MacUnifiedUtility.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
                         Button("Open Accessibility Settings…") {
                             PermissionsHelper.openAccessibilitySettings()
                         }
                         .buttonStyle(.link)
-                        .font(.caption)
+                        .font(.system(size: 11))
                     }
                 }
-                .padding(6)
             }
 
             Spacer()
