@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	    App Sandbox is disabled to allow:
+	      • SMC access via IOKit (temperature reading, battery charge limiting)
+	      • CGEvent tap installation (scroll reversal)
+
+	    Hardened Runtime is enabled with the following entitlements.
+	-->
+
+	<!-- Hardened Runtime: allow dynamic code execution (not required currently, but reserved) -->
+	<!-- com.apple.security.cs.allow-jit is omitted as we don't JIT -->
+
+	<!-- Required for CGDisplaySetDisplayMode (Quartz Display Services) -->
+	<key>com.apple.security.device.camera</key>
+	<false/>
+
+	<!-- Allow the app to be a network client if needed in future modules -->
+	<key>com.apple.security.network.client</key>
+	<false/>
+
+	<!--
+	    NOTE: App Sandbox (com.apple.security.app-sandbox) is intentionally
+	    NOT included here, which means the sandbox is disabled.
+
+	    This is required for:
+	      - IOKit access (SMC reads/writes)
+	      - CGEvent tap installation
+	      - Direct display mode switching without sandbox restrictions
+
+	    Set ENABLE_APP_SANDBOX = NO in build settings.
+	-->
+</dict>
+</plist>

@@ -1,98 +1,126 @@
 # MacUnifiedUtility
 
-# macOS Unified Utility App
-
-## User Goal
-Build a single macOS app to replace:
-- Scroll Reverser
-- Temperature monitoring app
-- BatFi (battery charge limiting)
-- BetterDisplay (display control)
+A single **macOS menu bar app** replacing multiple standalone utilities:
+- 🖥 **BetterDisplay** – screen resolution switching
+- 🖱 **Scroll Reverser** – per-device scroll direction control
+- 🌡 **Temperature Monitor** – SMC thermal sensor reading
+- 🔋 **BatFi** – battery charge limiting (experimental)
 
 ---
 
-## Initial Question
-**User:** How can I build a macOS app to control:
-- temperature probes
-- screen resolution
-- scroll reversing
+## Features
 
-### Key Answer
-- ✅ Screen resolution → supported via Quartz Display Services
-- ⚠️ Temperature probes → possible but requires low-level/private APIs (SMC)
-- ❌ Global scroll reversing → no clean public API (requires event interception)
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Display resolution switching | ✅ Implemented | Quartz Display Services / CoreGraphics public API |
+| Scroll reversal (mouse & trackpad) | ✅ Implemented | CGEvent tap, requires Accessibility permission |
+| Temperature monitoring | ✅ Implemented | Read-only SMC access via IOKit |
+| Battery charge limit (80%) | ⚠️ Experimental | SMC write (`BCLM` key), unofficial — use at own risk |
 
 ---
 
-## Project Strategy
+## Architecture
 
-### Recommended Architecture
-- SwiftUI menu bar + window app
-- Modular design:
-  - DisplayModule
-  - ScrollingModule
-  - ThermalModule
-  - BatteryModule
+```
+MacUnifiedUtility/
+├── MacUnifiedUtilityApp.swift          ← @main entry, MenuBarExtra + Settings scene
+└── Sources/
+    ├── Modules/
+    │   ├── Display/
+    │   │   ├── DisplayManager.swift    ← CGDisplay enumeration & mode switching
+    │   │   └── DisplayView.swift       ← SwiftUI view
+    │   ├── Scrolling/
+    │   │   ├── ScrollManager.swift     ← CGEvent tap installation/removal
+    │   │   └── ScrollSettingsView.swift
+    │   ├── Thermal/
+    │   │   ├── SMCHelper.swift         ← Low-level SMC read via IOKit
+    │   │   ├── ThermalMonitor.swift    ← Observable polling monitor
+    │   │   └── ThermalMonitorView.swift
+    │   └── Battery/
+    │       ├── BatteryManager.swift    ← IOKit Power Sources + SMC write
+    │       └── BatteryView.swift
+    └── Shared/
+        ├── SMCKit.swift                ← Shared SMC communication layer
+        ├── PermissionsHelper.swift     ← Accessibility permission check/prompt
+        └── SharedViews.swift           ← Reusable SwiftUI components
+```
 
 ### Tech Stack
-- Swift + SwiftUI
-- CoreGraphics (display)
-- IOKit / event taps (input)
-- SMC-based libs (thermal)
+- **Swift 5.9+** / **SwiftUI** (MenuBarExtra, Settings scene)
+- **CoreGraphics** / Quartz Display Services (display)
+- **CGEvent taps** (scroll reversal — requires Accessibility)
+- **IOKit** / SMC (temperature monitoring, battery limiting)
+- Swift Concurrency (`async/await`, `@MainActor`, `@Observable`)
 
 ---
 
-## Feature Feasibility
+## Requirements
 
-| Feature | Status |
-|--------|-------|
-| Display control | ✅ Easy |
-| Scroll reversing | ⚠️ Medium (event taps) |
-| Temperature monitoring | ⚠️ Medium/Hard (SMC) |
-| Battery limit (80%) | ❗ Hard / unofficial |
-
----
-
-## Recommended Development Order
-
-### Phase 1
-- Menu bar app
-- Display resolution switching
-
-### Phase 2
-- Scroll reversing (mouse vs trackpad)
-
-### Phase 3
-- Temperature monitoring (read-only)
-
-### Phase 4
-- Battery limiting (experimental)
+| Requirement | Value |
+|-------------|-------|
+| macOS | 13.0 Ventura or later |
+| Xcode | 15.0 or later |
+| Swift | 5.9+ |
+| App Sandbox | **Disabled** (required for IOKit / SMC access) |
 
 ---
 
-## Xcode Project Setup
+## Build Instructions
 
-### Template
-- macOS → **App**
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/FredericoNicola/MacUnifiedUtility.git
+   cd MacUnifiedUtility
+   ```
 
-### Configuration
-- Interface: SwiftUI
-- Language: Swift
-- Storage: None
-- Testing: None (recommended)
+2. **Open in Xcode**
+   ```bash
+   open MacUnifiedUtility.xcodeproj
+   ```
+
+3. **Select your development team**
+   - In Xcode → Project → Signing & Capabilities → Team
+
+4. **Build & Run** (⌘R)
+
+> **Note:** Sandbox is disabled in the entitlements file. Xcode may warn about
+> this — this is intentional and required for SMC/IOKit access.
 
 ---
 
-## Menu Bar App Setup
+## Permissions
 
-### Basic MenuBarExtra
+| Permission | Why Needed |
+|------------|-----------|
+| **Accessibility** | CGEvent tap for global scroll reversal |
 
-```swift
-@main
-struct AppName: App {
-    var body: some Scene {
-        MenuBarExtra("Control", systemImage: "gearshape") {
-            Text("Hello")
-        }
-    }
-}
+The app will prompt for Accessibility access when scroll reversal is first enabled.
+You can also grant it manually in **System Settings → Privacy & Security → Accessibility**.
+
+---
+
+## Development Phases
+
+### ✅ Phase 1 – Menu bar app + Display resolution switching
+- `@main` SwiftUI app with `MenuBarExtra`
+- Display enumeration and mode switching via `CGDisplayCopyAllDisplayModes` / `CGDisplaySetDisplayMode`
+
+### ✅ Phase 2 – Scroll reversing
+- CGEvent tap intercepting `scrollWheel` events
+- Independent toggles for mouse (discrete) vs trackpad (continuous) events
+
+### ✅ Phase 3 – Temperature monitoring (read-only)
+- IOKit connection to `AppleSMC` service
+- Polls known SMC keys (`TC0P`, `TC0D`, `TG0D`, etc.) on a configurable timer
+
+### ✅ Phase 4 – Battery limiting (experimental)
+- IOKit Power Sources for real-time battery status
+- Experimental SMC write to `BCLM` key (Battery Charge Level Maximum)
+
+---
+
+## ⚠️ Disclaimer
+
+- **SMC access** bypasses normal macOS security boundaries. This app runs without the App Sandbox, which is a deliberate trade-off for the required low-level access.
+- **Battery charge limiting** writes to an **undocumented SMC key** (`BCLM`). This feature is experimental, may not work on all hardware, and is not supported by Apple.
+- This project is provided **as-is** for educational and personal use. The author is not responsible for any damage to your hardware or data.
