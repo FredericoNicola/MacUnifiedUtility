@@ -42,12 +42,7 @@ final class ThermalMonitor: ObservableObject {
     // MARK: - Init
 
     init() {
-        smcHelper = SMCHelper()
-        if smcHelper == nil {
-            unavailableReason = "SMC service not found. Temperature monitoring is only available on Apple hardware."
-        } else {
-            startMonitoring()
-        }
+        connect()
     }
 
     // MARK: - Public API
@@ -67,13 +62,47 @@ final class ThermalMonitor: ObservableObject {
         isMonitoring = false
     }
 
+    /// Retry the SMC connection (e.g. after the user disables App Sandbox and relaunches).
+    func retryConnection() {
+        stopMonitoring()
+        smcHelper = nil
+        connect()
+    }
+
     // MARK: - Private
+
+    private func connect() {
+        smcHelper = SMCHelper()
+        if smcHelper == nil {
+            unavailableReason = """
+                Unable to connect to the SMC temperature service. \
+                This is usually caused by App Sandbox being enabled. \
+                Disable "App Sandbox" in Signing & Capabilities and relaunch the app. \
+                Temperature monitoring is only available on real Apple hardware.
+                """
+        } else {
+            unavailableReason = nil
+            startMonitoring()
+        }
+    }
 
     private func poll() {
         guard let smc = smcHelper else { return }
-        readings = SMCTemperatureKey.allCases.compactMap { key in
+        let newReadings = SMCTemperatureKey.allCases.compactMap { key -> TemperatureReading? in
             guard let value = smc.temperature(for: key) else { return nil }
             return TemperatureReading(key: key, value: value)
+        }
+
+        if newReadings.isEmpty {
+            unavailableReason = """
+                SMC connected but no sensors responded. \
+                On Apple Silicon Macs some sensor keys differ from Intel. \
+                The app may need updated sensor keys for your hardware.
+                """
+            stopMonitoring()
+        } else {
+            unavailableReason = nil
+            readings = newReadings
         }
     }
 

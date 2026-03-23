@@ -16,6 +16,10 @@ struct ThermalMonitorView: View {
             // ── Unavailable Banner ────────────────────────────────────
             if let reason = monitor.unavailableReason {
                 ErrorBanner(message: reason)
+                Button("Retry Connection") {
+                    monitor.retryConnection()
+                }
+                .buttonStyle(.bordered)
             } else {
                 // ── Status Bar ────────────────────────────────────────
                 HStack {
@@ -53,7 +57,7 @@ struct ThermalMonitorView: View {
                 if monitor.readings.isEmpty {
                     EmptyStateView(
                         title: "No Sensors Detected",
-                        systemImage: "thermometer.slash",
+                        systemImage: "thermometer.medium.slash",
                         description: "No SMC sensors responded. This may be normal on Apple Silicon Macs where some keys differ."
                     )
                 } else {

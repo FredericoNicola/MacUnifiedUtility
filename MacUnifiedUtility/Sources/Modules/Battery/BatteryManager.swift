@@ -96,21 +96,24 @@ final class BatteryManager: ObservableObject {
 
     /// Attempt to write the charge limit to SMC key `BCLM`.
     ///
+    /// Tries a direct write first; if that fails, escalates to an admin
+    /// authorisation dialog before retrying.
+    ///
     /// > This is experimental and may silently fail on unsupported hardware.
     private func applyChargeLimitIfNeeded() {
         lastError = nil
         guard isChargeLimitEnabled else {
             lastMessage = "Charge limit disabled – battery will charge to 100%."
-            smcKit?.writeChargeLimitPercent(100)
+            _ = PrivilegedSMCWriter.writeChargeLimit(100, using: smcKit)
             return
         }
 
         let target = chargeLimitPercent
-        let result = smcKit?.writeChargeLimitPercent(target) ?? false
-        if result {
+        let result = PrivilegedSMCWriter.writeChargeLimit(target, using: smcKit)
+        if result.success {
             lastMessage = "Charge limit set to \(target)% via SMC."
         } else {
-            lastError = "Could not write charge limit to SMC. This feature may not be supported on your hardware or requires elevated privileges."
+            lastError = result.error ?? "Could not write charge limit to SMC. This feature may not be supported on your hardware or requires elevated privileges."
         }
     }
 }
