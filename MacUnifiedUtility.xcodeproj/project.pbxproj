@@ -21,6 +21,7 @@
 		A1000012 /* PermissionsHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000012 /* PermissionsHelper.swift */; };
 		A1000013 /* SharedViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000013 /* SharedViews.swift */; };
 		A1000014 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A2000014 /* Assets.xcassets */; };
+		A1000015 /* PrivilegedSMCWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000017 /* PrivilegedSMCWriter.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -40,6 +41,7 @@
 		A2000014 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A2000015 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A2000016 /* MacUnifiedUtility.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MacUnifiedUtility.entitlements; sourceTree = "<group>"; };
+		A2000017 /* PrivilegedSMCWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivilegedSMCWriter.swift; sourceTree = "<group>"; };
 		A3000001 /* MacUnifiedUtility.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacUnifiedUtility.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -145,6 +147,7 @@
 				A2000011 /* SMCKit.swift */,
 				A2000012 /* PermissionsHelper.swift */,
 				A2000013 /* SharedViews.swift */,
+				A2000017 /* PrivilegedSMCWriter.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -231,6 +234,7 @@
 				A1000011 /* SMCKit.swift in Sources */,
 				A1000012 /* PermissionsHelper.swift in Sources */,
 				A1000013 /* SharedViews.swift in Sources */,
+				A1000015 /* PrivilegedSMCWriter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -373,7 +377,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 69S8R6D6QU;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
@@ -414,7 +418,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 69S8R6D6QU;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
