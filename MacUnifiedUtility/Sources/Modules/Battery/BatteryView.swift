@@ -94,6 +94,28 @@ struct BatteryView: View {
                                 .frame(width: 40, alignment: .trailing)
                         }
                     }
+
+                    if !PrivilegedHelperManager.shared.isHelperInstalled {
+                        Divider()
+                        HStack {
+                            Image(systemName: "lock.shield")
+                                .foregroundColor(.blue)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Privileged Helper Required")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                Text("Writing to SMC requires a helper tool running with administrator privileges. Click Install to set it up.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            Button("Install") {
+                                PrivilegedHelperManager.shared.installHelper()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
+                        }
+                    }
                 }
                 .padding(6)
             }

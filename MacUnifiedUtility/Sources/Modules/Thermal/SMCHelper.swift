@@ -16,34 +16,116 @@ enum SMCTemperatureKey: String, CaseIterable {
     case airflowRight   = "TaRC"
     case battery        = "TB0T"
 
-    // ── Apple Silicon keys (M1/M2/M3/M4) ─────────
-    case apCpuPerf0     = "Tp09"   // CPU performance core 0
-    case apCpuPerf1     = "Tp0T"   // CPU performance core 1
-    case apCpuEff0      = "Tp01"   // CPU efficiency core 0
-    case apCpuEff1      = "Tp05"   // CPU efficiency core 1
-    case apGpu0         = "Tg05"   // GPU cluster
-    case apSoc0         = "Tp0C"   // SoC (system-on-chip)
-    case apMemory       = "Tm02"   // Memory controller
-    case apANE          = "Tp2c"   // Apple Neural Engine
+    // ── Apple Silicon – CPU Performance Cores ─────
+    case apCpuPerf0     = "Tp09"
+    case apCpuPerf1     = "Tp0T"
+    case apCpuPerf2     = "Tp0S"
+    case apCpuPerf3     = "Tp0R"
+    case apCpuPerf4     = "Tp0Q"
+    case apCpuPerf5     = "Tp0P"
+
+    // ── Apple Silicon – CPU Efficiency Cores ──────
+    case apCpuEff0      = "Tp01"
+    case apCpuEff1      = "Tp05"
+    case apCpuEff2      = "Tp0D"
+    case apCpuEff3      = "Tp0H"
+
+    // ── Apple Silicon – GPU ───────────────────────
+    case apGpu0         = "Tg05"
+    case apGpu1         = "Tg0D"
+    case apGpu2         = "Tg0L"
+    case apGpu3         = "Tg0T"
+
+    // ── Apple Silicon – SoC / System ──────────────
+    case apSoc0         = "Tp0C"
+    case apSoc1         = "Tp0c"
+
+    // ── Apple Silicon – Memory ────────────────────
+    case apMemory       = "Tm02"
+    case apMemory1      = "TM0P"
+    case apMemory2      = "Tm0P"
+    case apMemory3      = "Tm1P"
+
+    // ── Apple Silicon – Neural Engine ─────────────
+    case apANE          = "Tp2c"
+
+    // ── Apple Silicon – SSD ───────────────────────
+    case apSSD          = "Ts0P"
+    case apSSD1         = "Ts1P"
+
+    // ── Apple Silicon – Ambient ───────────────────
+    case apAmbient      = "Ta0p"
+    case apAmbient1     = "TA0P"
+
+    // ── Apple Silicon – Thunderbolt ───────────────
+    case apThunderbolt0 = "Th0a"
+    case apThunderbolt1 = "Th1a"
+    case apThunderbolt2 = "Th2a"
+
+    // ── Apple Silicon – Battery (additional) ──────
+    case apBattery1     = "TB1T"
+    case apBattery2     = "TB2T"
+    case apBatteryExt   = "TBXT"
+
+    // ── Apple Silicon – Power Supply ──────────────
+    case apPowerSupply  = "Tp0X"
+    case apPowerSupply1 = "Tp0Z"
 
     var displayName: String {
         switch self {
-        case .cpuProximity:  return "CPU Proximity"
-        case .cpuDie:        return "CPU Die"
-        case .gpu:           return "GPU Die"
-        case .gpuProximity:  return "GPU Proximity"
-        case .heatsink:      return "Heatsink"
-        case .airflowLeft:   return "Airflow (Left)"
-        case .airflowRight:  return "Airflow (Right)"
-        case .battery:       return "Battery"
-        case .apCpuPerf0:    return "CPU P-Core 0"
-        case .apCpuPerf1:    return "CPU P-Core 1"
-        case .apCpuEff0:     return "CPU E-Core 0"
-        case .apCpuEff1:     return "CPU E-Core 1"
-        case .apGpu0:        return "GPU"
-        case .apSoc0:        return "SoC"
-        case .apMemory:      return "Memory"
-        case .apANE:         return "Neural Engine"
+        // Intel
+        case .cpuProximity:    return "CPU Proximity"
+        case .cpuDie:          return "CPU Die"
+        case .gpu:             return "GPU Die"
+        case .gpuProximity:    return "GPU Proximity"
+        case .heatsink:        return "Heatsink"
+        case .airflowLeft:     return "Airflow (Left)"
+        case .airflowRight:    return "Airflow (Right)"
+        case .battery:         return "Battery"
+        // Apple Silicon – CPU P-Cores
+        case .apCpuPerf0:      return "CPU P-Core 0"
+        case .apCpuPerf1:      return "CPU P-Core 1"
+        case .apCpuPerf2:      return "CPU P-Core 2"
+        case .apCpuPerf3:      return "CPU P-Core 3"
+        case .apCpuPerf4:      return "CPU P-Core 4"
+        case .apCpuPerf5:      return "CPU P-Core 5"
+        // Apple Silicon – CPU E-Cores
+        case .apCpuEff0:       return "CPU E-Core 0"
+        case .apCpuEff1:       return "CPU E-Core 1"
+        case .apCpuEff2:       return "CPU E-Core 2"
+        case .apCpuEff3:       return "CPU E-Core 3"
+        // Apple Silicon – GPU
+        case .apGpu0:          return "GPU 0"
+        case .apGpu1:          return "GPU 1"
+        case .apGpu2:          return "GPU 2"
+        case .apGpu3:          return "GPU 3"
+        // Apple Silicon – SoC
+        case .apSoc0:          return "SoC 0"
+        case .apSoc1:          return "SoC 1"
+        // Apple Silicon – Memory
+        case .apMemory:        return "Memory"
+        case .apMemory1:       return "Memory 1"
+        case .apMemory2:       return "Memory 2"
+        case .apMemory3:       return "Memory 3"
+        // Apple Silicon – Neural Engine
+        case .apANE:           return "Neural Engine"
+        // Apple Silicon – SSD
+        case .apSSD:           return "SSD"
+        case .apSSD1:          return "SSD 1"
+        // Apple Silicon – Ambient
+        case .apAmbient:       return "Ambient"
+        case .apAmbient1:      return "Ambient 1"
+        // Apple Silicon – Thunderbolt
+        case .apThunderbolt0:  return "Thunderbolt 0"
+        case .apThunderbolt1:  return "Thunderbolt 1"
+        case .apThunderbolt2:  return "Thunderbolt 2"
+        // Apple Silicon – Battery
+        case .apBattery1:      return "Battery 1"
+        case .apBattery2:      return "Battery 2"
+        case .apBatteryExt:    return "Battery (External)"
+        // Apple Silicon – Power Supply
+        case .apPowerSupply:   return "Power Supply"
+        case .apPowerSupply1:  return "Power Supply 1"
         }
     }
 }
@@ -144,6 +226,13 @@ final class SMCHelper {
     /// Returns `nil` if the key is not supported on this machine.
     func temperature(for key: SMCTemperatureKey) -> Double? {
         readTemperature(key: key.rawValue)
+    }
+
+    /// Read a temperature value (°C) from an arbitrary 4-character SMC key string.
+    /// Useful for probing model-specific keys not covered by the enum.
+    /// Returns `nil` if the key is not supported on this machine.
+    func readArbitraryTemperature(key: String) -> Double? {
+        readTemperature(key: key)
     }
 
     // MARK: - Private Helpers

@@ -28,7 +28,13 @@ final class ThermalMonitor: ObservableObject {
 
     /// A short summary suitable for the menu bar popover status row.
     var cpuTemperatureSummary: String {
-        if let cpu = readings.first(where: { $0.key == .cpuProximity || $0.key == .cpuDie }) {
+        // Check Intel keys first, then Apple Silicon
+        let cpuKeys: [SMCTemperatureKey] = [
+            .cpuProximity, .cpuDie,       // Intel
+            .apCpuPerf0, .apCpuEff0,      // Apple Silicon
+            .apSoc0                        // Apple Silicon SoC
+        ]
+        if let cpu = readings.first(where: { cpuKeys.contains($0.key) }) {
             return cpu.formattedValue
         }
         return unavailableReason != nil ? "Unavailable" : "–"

@@ -3,11 +3,8 @@ import Security
 
 /// Attempts to write an SMC charge-limit value with elevated privileges.
 ///
-/// First tries a direct write via the existing `SMCKit` connection. If that
-/// fails (typical when the process is not running as root), it requests
-/// administrator authorisation through the standard macOS password dialog
-/// and then retries the write. On hardware or firmware that actively blocks
-/// the `BCLM` key, the write will still fail even with authorisation.
+/// First tries a direct (unprivileged) write. If that fails, uses the
+/// SMJobBless privileged helper tool running as root to perform the write.
 enum PrivilegedSMCWriter {
 
     // MARK: - Result
@@ -37,54 +34,24 @@ enum PrivilegedSMCWriter {
             return WriteResult(success: true, error: nil)
         }
 
-        // Request administrator authorisation — shows the macOS password dialog.
-        var authRef: AuthorizationRef?
-        let createStatus = AuthorizationCreate(nil, nil, [], &authRef)
-        guard createStatus == errAuthorizationSuccess, let auth = authRef else {
-            return WriteResult(success: false, error: "Could not create an authorisation request.")
-        }
-        defer { AuthorizationFree(auth, [.destroyRights]) }
-
-        let rightName = "com.macunifiedutility.smcwrite"
-        let authStatus: OSStatus = rightName.withCString { namePtr in
-            var item = AuthorizationItem(name: namePtr, valueLength: 0, value: nil, flags: 0)
-            return withUnsafeMutablePointer(to: &item) { itemPtr in
-                var rights = AuthorizationRights(count: 1, items: itemPtr)
-                let flags: AuthorizationFlags = [.interactionAllowed, .extendRights, .preAuthorize]
-                return AuthorizationCopyRights(auth, &rights, nil, flags, nil)
-            }
-        }
-
-        switch authStatus {
-        case errAuthorizationSuccess:
-            break
-        case errAuthorizationCanceled:
-            return WriteResult(success: false, error: "Authorisation was cancelled.")
-        default:
-            return WriteResult(
-                success: false,
-                error: "Authorisation failed (error \(authStatus))."
-            )
-        }
-
-        // Retry the write after authorisation. On some systems, having an
-        // admin session token is sufficient for IOKit to allow the write.
-        if let smc = smcKit, smc.writeChargeLimitPercent(percent) {
-            return WriteResult(success: true, error: nil)
-        }
-
-        // If a fresh SMCKit connection also fails, the firmware is blocking
-        // the write regardless of user privileges.
-        if let freshSMC = SMCKit(), freshSMC.writeChargeLimitPercent(percent) {
-            return WriteResult(success: true, error: nil)
-        }
-
+        // Unprivileged write failed — indicate the privileged helper should be used.
         return WriteResult(
             success: false,
-            error: "Could not write charge limit to SMC. " +
-                   "Writing to BCLM requires root-level access that cannot be " +
-                   "obtained through standard authorisation. " +
-                   "This feature may not be supported on your hardware."
+            error: nil  // nil error = should try privileged helper
         )
+    }
+
+    /// Async version that uses the privileged helper tool for root-level SMC writes.
+    @MainActor
+    static func writeChargeLimitPrivileged(_ percent: Int, using smcKit: SMCKit?) async -> WriteResult {
+        // Try unprivileged first
+        let unprivResult = writeChargeLimit(percent, using: smcKit)
+        if unprivResult.success {
+            return unprivResult
+        }
+
+        // Use privileged helper
+        let helperResult = await PrivilegedHelperManager.shared.writeChargeLimit(percent)
+        return WriteResult(success: helperResult.success, error: helperResult.error)
     }
 }
