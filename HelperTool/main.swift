@@ -21,11 +21,12 @@ class HelperToolService: NSObject, PrivilegedHelperProtocol {
             reply(false, "Could not open SMC connection from helper tool.")
             return
         }
-        let success = smc.writeChargeLimitPercent(percent)
-        if success {
+        let clamped = max(0, min(percent, 100))
+        do {
+            try smc.writeUInt8("BCLM", value: UInt8(clamped))
             reply(true, nil)
-        } else {
-            reply(false, "SMC write failed. The BCLM key may not be supported on this hardware.")
+        } catch {
+            reply(false, "SMC write failed: \(error.localizedDescription)")
         }
     }
 

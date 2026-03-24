@@ -30,7 +30,8 @@ enum PrivilegedSMCWriter {
         }
 
         // Try direct write (succeeds when running as root or firmware allows it).
-        if let smc = smcKit, smc.writeChargeLimitPercent(percent) {
+        let clamped = max(0, min(percent, 100))
+        if let smc = smcKit, (try? smc.writeUInt8("BCLM", value: UInt8(clamped))) != nil {
             return WriteResult(success: true, error: nil, needsPrivileges: false)
         }
 
