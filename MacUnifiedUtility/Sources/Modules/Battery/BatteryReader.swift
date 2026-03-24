@@ -139,6 +139,7 @@ final class BatteryReader {
         var currentCapacity: Int?
         var voltage:         Double?
         var amperage:        Double?
+        var adapterWatts:    Int?
 
         if service != IO_OBJECT_NULL {
             defer { IOObjectRelease(service) }
@@ -154,6 +155,17 @@ final class BatteryReader {
             }
             if let v = readInt("Voltage",   service: service) { voltage  = Double(v) }
             if let a = readInt("Amperage",  service: service) { amperage = Double(a) }
+
+            // Read adapter wattage from AdapterDetails dictionary
+            if let unmanaged = IORegistryEntryCreateCFProperty(
+                service, "AdapterDetails" as CFString, kCFAllocatorDefault, 0
+            ) {
+                let adapterDetails = unmanaged.takeRetainedValue()
+                if let dict = adapterDetails as? [String: Any],
+                   let watts = dict["Watts"] as? Int {
+                    adapterWatts = watts
+                }
+            }
         }
 
         return PowerState(
@@ -171,7 +183,8 @@ final class BatteryReader {
             maxCapacity:                     maxCapacity,
             currentCapacity:                 currentCapacity,
             voltage:                         voltage,
-            amperage:                        amperage
+            amperage:                        amperage,
+            adapterWatts:                    adapterWatts
         )
     }
 

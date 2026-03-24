@@ -74,6 +74,9 @@ struct AppMenuView: View {
                 StatusRow(icon: "battery.75",
                           label: "Battery",
                           value: batteryManager.statusSummary)
+                StatusRow(icon: "powerplug",
+                          label: "Power Source",
+                          value: batteryManager.powerState?.powerSource ?? "Unknown")
             }
             .padding(.horizontal)
             .padding(.vertical, 8)
