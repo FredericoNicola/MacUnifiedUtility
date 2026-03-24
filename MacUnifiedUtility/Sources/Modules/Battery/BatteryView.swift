@@ -157,6 +157,27 @@ struct BatteryView: View {
                     detailRow(label: "Amperage",
                               value: String(format: "%.0f mA", amperage))
                 }
+
+                if let watts = state.powerDrawWatts {
+                    let direction: String
+                    if let a = state.amperage, a > 0 {
+                        direction = "(charging)"
+                    } else if let a = state.amperage, a < 0 {
+                        direction = "(discharging)"
+                    } else {
+                        direction = "(idle)"
+                    }
+                    detailRow(label: "Power Draw",
+                              value: String(format: "%.1f W \(direction)", watts))
+                }
+
+                if let adapterWatts = state.adapterWatts, state.chargerConnected {
+                    detailRow(label: "Adapter",
+                              value: "\(adapterWatts) W adapter")
+                }
+
+                detailRow(label: "Power Source",
+                          value: state.powerSource)
             }
         }
     }

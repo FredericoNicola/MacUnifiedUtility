@@ -62,7 +62,7 @@ private struct DisplayRow: View {
     @EnvironmentObject private var manager: DisplayManager
     let display: DisplayInfo
 
-    @State private var selectedMode: CGDisplayMode?
+    @State private var selectedMode: DisplayModeItem?
 
     var body: some View {
         CardView {
@@ -76,7 +76,7 @@ private struct DisplayRow: View {
                         .font(.system(size: 14, weight: .semibold))
                     Spacer()
                     if let current = display.currentMode {
-                        TagBadge(text: current.label, color: .accentColor)
+                        TagBadge(text: current.mode.label, color: .accentColor)
                     }
                 }
 
@@ -89,18 +89,18 @@ private struct DisplayRow: View {
                         .foregroundStyle(.secondary)
                     Picker("", selection: $selectedMode) {
                         Text("Select a mode…")
-                            .tag(nil as CGDisplayMode?)
-                        ForEach(display.availableModes, id: \.self) { mode in
-                            Text(mode.label)
-                                .tag(Optional(mode))
+                            .tag(nil as DisplayModeItem?)
+                        ForEach(display.availableModes) { item in
+                            Text(item.mode.label)
+                                .tag(Optional(item))
                         }
                     }
                     .labelsHidden()
                     .frame(maxWidth: .infinity)
 
                     Button("Apply") {
-                        if let mode = selectedMode {
-                            manager.setMode(mode, for: display)
+                        if let item = selectedMode {
+                            manager.setMode(item, for: display)
                         }
                     }
                     .buttonStyle(.borderedProminent)

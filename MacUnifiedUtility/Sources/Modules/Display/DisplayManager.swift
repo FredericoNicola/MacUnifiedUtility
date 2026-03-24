@@ -34,8 +34,8 @@ final class DisplayManager: ObservableObject {
     ///
     /// - Parameters:
     ///   - display: The target display.
-    ///   - mode: The desired `CGDisplayMode`.
-    func setMode(_ mode: CGDisplayMode, for display: DisplayInfo) {
+    ///   - mode: The desired `DisplayModeItem`.
+    func setMode(_ modeItem: DisplayModeItem, for display: DisplayInfo) {
         var config: CGDisplayConfigRef?
         guard CGBeginDisplayConfiguration(&config) == .success,
               let config else {
@@ -43,7 +43,7 @@ final class DisplayManager: ObservableObject {
             return
         }
 
-        CGConfigureDisplayWithDisplayMode(config, display.cgDirectDisplayID, mode, nil)
+        CGConfigureDisplayWithDisplayMode(config, display.cgDirectDisplayID, modeItem.mode, nil)
 
         let result = CGCompleteDisplayConfiguration(config, .permanently)
         if result != .success {
@@ -74,17 +74,40 @@ final class DisplayManager: ObservableObject {
         }
     }
 
-    /// Returns all available `CGDisplayMode`s for a given display, sorted by pixel area.
-    private static func availableModes(for displayID: CGDirectDisplayID) -> [CGDisplayMode] {
+    /// Returns all available `DisplayModeItem`s for a given display, sorted by pixel area.
+    private static func availableModes(for displayID: CGDirectDisplayID) -> [DisplayModeItem] {
         let options = [kCGDisplayShowDuplicateLowResolutionModes: kCFBooleanTrue] as CFDictionary
         guard let modeArray = CGDisplayCopyAllDisplayModes(displayID, options) as? [CGDisplayMode] else {
             return []
         }
-        return modeArray.sorted { $0.pixelWidth * $0.pixelHeight > $1.pixelWidth * $1.pixelHeight }
+        return modeArray
+            .sorted { $0.pixelWidth * $0.pixelHeight > $1.pixelWidth * $1.pixelHeight }
+            .map { DisplayModeItem(mode: $0) }
     }
 }
 
 // MARK: - Supporting Types
+
+/// A `Hashable` and `Identifiable` wrapper around `CGDisplayMode`.
+///
+/// `CGDisplayMode` does not conform to `Hashable`, which causes SwiftUI `Picker`
+/// tags to fail silently. This wrapper derives identity and equality from the
+/// mode's observable properties.
+struct DisplayModeItem: Identifiable, Hashable {
+    let mode: CGDisplayMode
+
+    var id: String {
+        String(format: "%dx%d@%dx%d_%.6f", mode.width, mode.height, mode.pixelWidth, mode.pixelHeight, mode.refreshRate)
+    }
+
+    static func == (lhs: DisplayModeItem, rhs: DisplayModeItem) -> Bool {
+        lhs.id == rhs.id
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+}
 
 /// Value type describing a single connected display.
 struct DisplayInfo: Identifiable {
@@ -102,11 +125,13 @@ struct DisplayInfo: Identifiable {
     }
 
     /// All modes available on this display (sorted largest first).
-    let availableModes: [CGDisplayMode]
+    let availableModes: [DisplayModeItem]
 
     /// The currently active mode (may be `nil` if not found in `availableModes`).
-    var currentMode: CGDisplayMode? {
-        CGDisplayCopyDisplayMode(cgDirectDisplayID)
+    var currentMode: DisplayModeItem? {
+        guard let raw = CGDisplayCopyDisplayMode(cgDirectDisplayID) else { return nil }
+        let item = DisplayModeItem(mode: raw)
+        return availableModes.first { $0 == item } ?? DisplayModeItem(mode: raw)
     }
 }
 

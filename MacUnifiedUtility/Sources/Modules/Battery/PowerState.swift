@@ -18,6 +18,13 @@ struct PowerState: Equatable {
     let currentCapacity: Int?        // mAh from AppleSmartBattery
     let voltage: Double?             // mV from AppleSmartBattery
     let amperage: Double?            // mA from AppleSmartBattery (negative = discharging)
+    let adapterWatts: Int?           // W rating of the connected charger from AppleSmartBattery AdapterDetails
+
+    /// Calculated power draw in Watts: |amperage (mA)| × voltage (mV) / 1,000,000.
+    var powerDrawWatts: Double? {
+        guard let a = amperage, let v = voltage else { return nil }
+        return abs(a) * v / 1_000_000
+    }
 
     /// Human-readable time description.
     var timeDescription: String {
