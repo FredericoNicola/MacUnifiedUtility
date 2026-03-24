@@ -96,8 +96,9 @@ final class BatteryManager: ObservableObject {
 
     /// Attempt to write the charge limit to SMC key `BCLM`.
     ///
-    /// Tries a direct write; if that fails and we're not root, surfaces a
-    /// message prompting the user to relaunch with elevated privileges.
+    /// When the privileged XPC helper is connected, the write is routed
+    /// through it (runs as root). Otherwise, a direct unprivileged write is
+    /// tried; if that also fails, the user is prompted to install the helper.
     ///
     /// > This is experimental and may silently fail on unsupported hardware.
     private func applyChargeLimitIfNeeded() {
@@ -109,13 +110,33 @@ final class BatteryManager: ObservableObject {
         }
 
         let target = chargeLimitPercent
+
+        // Route through the XPC helper when it is connected (runs as root).
+        if let proxy = PrivilegedHelperManager.shared.helperProxy {
+            proxy.writeChargeLimitToSMC(percent: target) { [weak self] success, errorMessage in
+                Task { @MainActor [weak self] in
+                    if success {
+                        self?.lastMessage = "Charge limit set to \(target)% via privileged helper."
+                        self?.lastError   = nil
+                    } else {
+                        self?.lastError   = errorMessage
+                            ?? "Could not write charge limit via privileged helper."
+                        self?.lastMessage = nil
+                    }
+                }
+            }
+            return
+        }
+
+        // Fall back to a direct (unprivileged) write.
         let result = PrivilegedSMCWriter.writeChargeLimit(target, using: smcKit)
         if result.success {
             lastMessage = "Charge limit set to \(target)% via SMC."
         } else if result.needsPrivileges {
-            lastError = "Administrator privileges required. Relaunch the app with elevated privileges to enable charge limiting."
+            lastError = "Administrator privileges required. Use \"Install Privileged Helper\" in the Battery settings to enable charge limiting."
         } else {
-            lastError = result.error ?? "Could not write charge limit. This feature may not be supported on your hardware."
+            lastError = result.error
+                ?? "Could not write charge limit. This feature may not be supported on your hardware."
         }
     }
 }

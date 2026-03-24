@@ -141,9 +141,9 @@ struct BatteryView: View {
                             }
                             Spacer()
                             Button {
-                                PrivilegedHelperManager.shared.relaunchWithPrivileges()
+                                PrivilegedHelperManager.shared.installHelper()
                             } label: {
-                                Label("Relaunch as Admin", systemImage: "arrow.clockwise")
+                                Label("Install Privileged Helper", systemImage: "shield.lefthalf.filled")
                                     .font(.system(size: 12, weight: .medium))
                             }
                             .buttonStyle(.borderedProminent)

@@ -243,7 +243,8 @@ final class SMCHelper {
     ///
     /// Reads the total key count via the `#KEY` meta-key, then iterates through
     /// every key by index using `kSMCGetKeyFromIndex`. Any key whose name starts
-    /// with `T` that returns a valid `sp78` temperature reading is included.
+    /// with `T` that returns a valid temperature reading (in `sp78`, `flt`, or
+    /// `fpe2` encoding) is included.
     ///
     /// - Returns: An array of `(key, displayName, value)` tuples for all live
     ///            temperature sensors found on this hardware.
@@ -323,6 +324,8 @@ final class SMCHelper {
             return nil
         }
 
+        let dataType = outputStruct.keyInfo.dataType
+
         // Re-use the key info to read the value.
         inputStruct.keyInfo.dataSize = outputStruct.keyInfo.dataSize
         inputStruct.data8            = UInt8(Self.kSMCGetKeyValue)
@@ -331,12 +334,39 @@ final class SMCHelper {
             return nil
         }
 
-        // Temperature values are encoded as a fixed-point `sp78` type:
-        //   byte[0] is the integer part, byte[1] is the fractional (in 1/256 °C)
-        let rawBytes = outputStruct.bytes
-        let intPart  = Double(rawBytes.0)
-        let fracPart = Double(rawBytes.1) / 256.0
-        let celsius  = intPart + fracPart
+        return decodeTemperature(from: outputStruct, dataType: dataType)
+    }
+
+    /// Decode a raw SMC output struct into a Celsius temperature using the
+    /// sensor's reported data type.
+    ///
+    /// Supported encodings:
+    /// - `sp78` (`0x73703738`): signed fixed-point 7.8 – the traditional Intel format.
+    /// - `flt ` (`0x666C7420`): big-endian IEEE 754 single-precision float –
+    ///   used by most Apple Silicon temperature sensors.
+    /// - `fpe2` (`0x66706532`): unsigned fixed-point 14.2 – found on some
+    ///   peripheral and ambient sensors.
+    private func decodeTemperature(from output: SMCParamStruct, dataType: UInt32) -> Double? {
+        let b = output.bytes
+        let celsius: Double
+
+        switch dataType {
+        case 0x73703738: // sp78 – signed fixed-point 7.8
+            let raw = (Int16(b.0) << 8) | Int16(b.1)
+            celsius = Double(raw) / 256.0
+
+        case 0x666C7420: // flt – IEEE 754 single-precision float (big-endian)
+            let u = (UInt32(b.0) << 24) | (UInt32(b.1) << 16)
+                  | (UInt32(b.2) << 8)  |  UInt32(b.3)
+            celsius = Double(Float(bitPattern: u))
+
+        case 0x66706532: // fpe2 – unsigned fixed-point 14.2
+            let raw = (UInt16(b.0) << 8) | UInt16(b.1)
+            celsius = Double(raw) / 4.0
+
+        default:
+            return nil
+        }
 
         // Sanity-check: plausible sensor range −40 … 125 °C
         guard celsius > -40, celsius < 125 else { return nil }
