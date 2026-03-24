@@ -27,6 +27,9 @@
 		B1000001 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000001 /* main.swift */; };
 		B1000002 /* SMCKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000011 /* SMCKit.swift */; };
 		B1000003 /* PrivilegedHelperProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000018 /* PrivilegedHelperProtocol.swift */; };
+A1000018 /* Platform.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000020 /* Platform.swift */; };
+A1000019 /* SensorValues.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000021 /* SensorValues.swift */; };
+A1000020 /* SMCBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = A2000023 /* SMCBridge.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -54,6 +57,11 @@
 		B2000002 /* com.macunifiedutility.helper-Launchd.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "com.macunifiedutility.helper-Launchd.plist"; sourceTree = "<group>"; };
 		B2000003 /* com.macunifiedutility.helper-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "com.macunifiedutility.helper-Info.plist"; sourceTree = "<group>"; };
 		B3000001 /* com.macunifiedutility.helper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "com.macunifiedutility.helper"; sourceTree = BUILT_PRODUCTS_DIR; };
+A2000020 /* Platform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Platform.swift; sourceTree = "<group>"; };
+A2000021 /* SensorValues.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SensorValues.swift; sourceTree = "<group>"; };
+A2000022 /* MacUnifiedUtility-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "MacUnifiedUtility-Bridging-Header.h"; sourceTree = "<group>"; };
+A2000023 /* SMCBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SMCBridge.m; sourceTree = "<group>"; };
+A2000024 /* SMCBridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SMCBridge.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -87,6 +95,7 @@
 			isa = PBXGroup;
 			children = (
 				A2000001 /* MacUnifiedUtilityApp.swift */,
+				A2000022 /* MacUnifiedUtility-Bridging-Header.h */,
 				A5000010 /* Sources */,
 				A2000014 /* Assets.xcassets */,
 				A2000015 /* Info.plist */,
@@ -146,6 +155,9 @@
 			isa = PBXGroup;
 			children = (
 				A2000006 /* SMCHelper.swift */,
+				A2000021 /* SensorValues.swift */,
+				A2000023 /* SMCBridge.m */,
+				A2000024 /* SMCBridge.h */,
 				A2000007 /* ThermalMonitor.swift */,
 				A2000008 /* ThermalMonitorView.swift */,
 			);
@@ -164,6 +176,7 @@
 		A5000030 /* Shared */ = {
 			isa = PBXGroup;
 			children = (
+				A2000020 /* Platform.swift */,
 				A2000011 /* SMCKit.swift */,
 				A2000012 /* PermissionsHelper.swift */,
 				A2000013 /* SharedViews.swift */,
@@ -289,6 +302,9 @@
 				A1000015 /* PrivilegedSMCWriter.swift in Sources */,
 				A1000016 /* PrivilegedHelperProtocol.swift in Sources */,
 				A1000017 /* PrivilegedHelperManager.swift in Sources */,
+				A1000018 /* Platform.swift in Sources */,
+				A1000019 /* SensorValues.swift in Sources */,
+				A1000020 /* SMCBridge.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -467,6 +483,7 @@
 				RUNTIME_EXCEPTION_DISABLE_EXECUTABLE_PAGE_PROTECTION = NO;
 				RUNTIME_EXCEPTION_DISABLE_LIBRARY_VALIDATION = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "MacUnifiedUtility/MacUnifiedUtility-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
@@ -508,6 +525,7 @@
 				RUNTIME_EXCEPTION_DISABLE_EXECUTABLE_PAGE_PROTECTION = NO;
 				RUNTIME_EXCEPTION_DISABLE_LIBRARY_VALIDATION = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "MacUnifiedUtility/MacUnifiedUtility-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
