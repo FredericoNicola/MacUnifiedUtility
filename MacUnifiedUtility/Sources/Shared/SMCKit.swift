@@ -114,14 +114,22 @@ final class SMCKit {
     @discardableResult
     func writeChargeLimitPercent(_ percent: Int) -> Bool {
         let clampedPercent = min(max(percent, 0), 100)
-        var inputStruct = SMCParamStruct()
+        var inputStruct  = SMCParamStruct()
         var outputStruct = SMCParamStruct()
 
         // Key BCLM = Battery Charge Level Maximum
-        inputStruct.key             = fourCharCode("BCLM")
-        inputStruct.data8           = UInt8(Self.kSMCSetKeyValue)
-        inputStruct.keyInfo.dataSize = 1      // ui8 = 1 byte
-        inputStruct.bytes.0         = UInt8(clampedPercent)
+        // Step 1: Get key info so we use the correct dataSize from the SMC driver.
+        inputStruct.key   = fourCharCode("BCLM")
+        inputStruct.data8 = UInt8(Self.kSMCGetKeyInfo)
+
+        guard callSMC(input: &inputStruct, output: &outputStruct) == kIOReturnSuccess else {
+            return false
+        }
+
+        // Step 2: Write the value using the dataSize reported by the SMC.
+        inputStruct.keyInfo.dataSize = outputStruct.keyInfo.dataSize
+        inputStruct.data8            = UInt8(Self.kSMCSetKeyValue)
+        inputStruct.bytes.0          = UInt8(clampedPercent)
 
         let result = callSMC(input: &inputStruct, output: &outputStruct)
         return result == kIOReturnSuccess
