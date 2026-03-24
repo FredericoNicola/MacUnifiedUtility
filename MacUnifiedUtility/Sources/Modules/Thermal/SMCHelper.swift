@@ -1,163 +1,26 @@
 import Foundation
 import IOKit
 
-// MARK: - SMC Key Constants
-
-/// A selection of well-known Apple SMC temperature sensor keys.
-/// All keys are 4-character ASCII strings defined by Apple's firmware.
-enum SMCTemperatureKey: String, CaseIterable {
-    // ── Intel keys ────────────────────────────────
-    case cpuProximity   = "TC0P"
-    case cpuDie         = "TC0D"
-    case gpu            = "TG0D"
-    case gpuProximity   = "TG0P"
-    case heatsink       = "Th0H"
-    case airflowLeft    = "TaLC"
-    case airflowRight   = "TaRC"
-    case battery        = "TB0T"
-
-    // ── Apple Silicon – CPU Performance Cores ─────
-    case apCpuPerf0     = "Tp09"
-    case apCpuPerf1     = "Tp0T"
-    case apCpuPerf2     = "Tp0S"
-    case apCpuPerf3     = "Tp0R"
-    case apCpuPerf4     = "Tp0Q"
-    case apCpuPerf5     = "Tp0P"
-
-    // ── Apple Silicon – CPU Efficiency Cores ──────
-    case apCpuEff0      = "Tp01"
-    case apCpuEff1      = "Tp05"
-    case apCpuEff2      = "Tp0D"
-    case apCpuEff3      = "Tp0H"
-
-    // ── Apple Silicon – GPU ───────────────────────
-    case apGpu0         = "Tg05"
-    case apGpu1         = "Tg0D"
-    case apGpu2         = "Tg0L"
-    case apGpu3         = "Tg0T"
-
-    // ── Apple Silicon – SoC / System ──────────────
-    case apSoc0         = "Tp0C"
-    case apSoc1         = "Tp0c"
-
-    // ── Apple Silicon – Memory ────────────────────
-    case apMemory       = "Tm02"
-    case apMemory1      = "TM0P"
-    case apMemory2      = "Tm0P"
-    case apMemory3      = "Tm1P"
-
-    // ── Apple Silicon – Neural Engine ─────────────
-    case apANE          = "Tp2c"
-
-    // ── Apple Silicon – SSD ───────────────────────
-    case apSSD          = "Ts0P"
-    case apSSD1         = "Ts1P"
-
-    // ── Apple Silicon – Ambient ───────────────────
-    case apAmbient      = "Ta0p"
-    case apAmbient1     = "TA0P"
-
-    // ── Apple Silicon – Thunderbolt ───────────────
-    case apThunderbolt0 = "Th0a"
-    case apThunderbolt1 = "Th1a"
-    case apThunderbolt2 = "Th2a"
-
-    // ── Apple Silicon – Battery (additional) ──────
-    case apBattery1     = "TB1T"
-    case apBattery2     = "TB2T"
-    case apBatteryExt   = "TBXT"
-
-    // ── Apple Silicon – Power Supply ──────────────
-    case apPowerSupply  = "Tp0X"
-    case apPowerSupply1 = "Tp0Z"
-
-    var displayName: String {
-        switch self {
-        // Intel
-        case .cpuProximity:    return "CPU Proximity"
-        case .cpuDie:          return "CPU Die"
-        case .gpu:             return "GPU Die"
-        case .gpuProximity:    return "GPU Proximity"
-        case .heatsink:        return "Heatsink"
-        case .airflowLeft:     return "Airflow (Left)"
-        case .airflowRight:    return "Airflow (Right)"
-        case .battery:         return "Battery"
-        // Apple Silicon – CPU P-Cores
-        case .apCpuPerf0:      return "CPU P-Core 0"
-        case .apCpuPerf1:      return "CPU P-Core 1"
-        case .apCpuPerf2:      return "CPU P-Core 2"
-        case .apCpuPerf3:      return "CPU P-Core 3"
-        case .apCpuPerf4:      return "CPU P-Core 4"
-        case .apCpuPerf5:      return "CPU P-Core 5"
-        // Apple Silicon – CPU E-Cores
-        case .apCpuEff0:       return "CPU E-Core 0"
-        case .apCpuEff1:       return "CPU E-Core 1"
-        case .apCpuEff2:       return "CPU E-Core 2"
-        case .apCpuEff3:       return "CPU E-Core 3"
-        // Apple Silicon – GPU
-        case .apGpu0:          return "GPU 0"
-        case .apGpu1:          return "GPU 1"
-        case .apGpu2:          return "GPU 2"
-        case .apGpu3:          return "GPU 3"
-        // Apple Silicon – SoC
-        case .apSoc0:          return "SoC 0"
-        case .apSoc1:          return "SoC 1"
-        // Apple Silicon – Memory
-        case .apMemory:        return "Memory"
-        case .apMemory1:       return "Memory 1"
-        case .apMemory2:       return "Memory 2"
-        case .apMemory3:       return "Memory 3"
-        // Apple Silicon – Neural Engine
-        case .apANE:           return "Neural Engine"
-        // Apple Silicon – SSD
-        case .apSSD:           return "SSD"
-        case .apSSD1:          return "SSD 1"
-        // Apple Silicon – Ambient
-        case .apAmbient:       return "Ambient"
-        case .apAmbient1:      return "Ambient 1"
-        // Apple Silicon – Thunderbolt
-        case .apThunderbolt0:  return "Thunderbolt 0"
-        case .apThunderbolt1:  return "Thunderbolt 1"
-        case .apThunderbolt2:  return "Thunderbolt 2"
-        // Apple Silicon – Battery
-        case .apBattery1:      return "Battery 1"
-        case .apBattery2:      return "Battery 2"
-        case .apBatteryExt:    return "Battery (External)"
-        // Apple Silicon – Power Supply
-        case .apPowerSupply:   return "Power Supply"
-        case .apPowerSupply1:  return "Power Supply 1"
-        }
-    }
-}
-
 // MARK: - SMC Helper
 
 /// Low-level read-only helper for Apple System Management Controller (SMC) access.
 ///
-/// Uses IOKit to open a connection to `AppleSMC` and sends `kSMCGetKeyValue`
-/// calls via `IOConnectCallStructMethod`.
+/// Uses IOKit to open a connection to `AppleSMC` and sends SMC sub-commands
+/// via `IOConnectCallStructMethod`. Supports reading any numeric sensor type
+/// (temperature, voltage, current, power, fan RPM) as well as enumerating
+/// all available SMC keys.
 ///
-/// > Important: This class reads SMC data only; it never writes to the SMC.
-/// > SMC access requires the app to run without App Sandbox.
+/// > Important: SMC access requires the app to run without App Sandbox.
 final class SMCHelper {
 
-    // MARK: - IOKit Constants
+    // MARK: - IOKit Sub-command Selectors
 
-    /// The single method index used for all SMC operations via IOConnectCallStructMethod.
-    /// The actual operation (GetKeyInfo, GetKeyValue, SetKeyValue) is encoded in `data8`.
-    private static let kSMCHandleYPCEvent:   UInt32 = 2
-
-    private static let kSMCUserClientOpen:   UInt32 = 0
-    private static let kSMCUserClientClose:  UInt32 = 1
-    private static let kSMCGetKeyInfo:       UInt32 = 9
-    private static let kSMCGetKeyValue:      UInt32 = 5
-    private static let kSMCGetKeyFromIndex:  UInt32 = 8
-
-    /// Maximum number of SMC keys to enumerate during dynamic sensor discovery.
-    private static let maxSMCKeyCount:       UInt32 = 1_000
+    private static let kSMCHandleYPCEvent: UInt32 = 2  // fixed method selector
+    private static let kSMCGetKeyInfo:     UInt32 = 9
+    private static let kSMCGetKeyValue:    UInt32 = 5
+    private static let kSMCGetKeyFromIndex: UInt32 = 8
 
     // MARK: - SMC Structures (must match kernel layout exactly)
-    // Default zero values allow no-argument initialization: SMCParamStruct()
 
     struct SMCVersion {
         var major:    CUnsignedChar = 0
@@ -198,14 +61,10 @@ final class SMCHelper {
              0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
     }
 
-    // MARK: - Internal State
+    // MARK: - Connection
 
     private var connection: io_connect_t = 0
 
-    // MARK: - Lifecycle
-
-    /// Opens a connection to the AppleSMC IOKit service.
-    /// Returns `nil` if the service cannot be found (e.g., on non-Apple hardware or VMs).
     init?() {
         let service = IOServiceGetMatchingService(
             kIOMainPortDefault,
@@ -213,199 +72,165 @@ final class SMCHelper {
         )
         guard service != IO_OBJECT_NULL else { return nil }
         defer { IOObjectRelease(service) }
-
-        let result = IOServiceOpen(service, mach_task_self_, 0, &connection)
-        guard result == kIOReturnSuccess else { return nil }
+        guard IOServiceOpen(service, mach_task_self_, 0, &connection) == kIOReturnSuccess else {
+            return nil
+        }
     }
 
     deinit {
-        if connection != 0 {
-            IOServiceClose(connection)
+        if connection != 0 { IOServiceClose(connection) }
+    }
+
+    // MARK: - Public API
+
+    /// Returns all SMC key strings available on this machine (from `#KEY` + index enumeration).
+    func getAllKeys() -> [String] {
+        var keys: [String] = []
+
+        // Read total key count from the #KEY meta-key.
+        guard let count = readRawUInt32(key: "#KEY"), count > 0 else { return keys }
+
+        let cap = min(count, 2_000)
+        for i in 0..<cap {
+            var inp = SMCParamStruct()
+            var out = SMCParamStruct()
+            inp.data8  = UInt8(Self.kSMCGetKeyFromIndex)
+            inp.data32 = i
+            guard callSMC(input: &inp, output: &out) == kIOReturnSuccess else { continue }
+            let k = decodeKey(out.key)
+            if !k.isEmpty { keys.append(k) }
         }
+        return keys
     }
 
-    // MARK: - Public Read API
-
-    /// Read a temperature value (°C) for the given SMC key.
-    /// Returns `nil` if the key is not supported on this machine.
-    func temperature(for key: SMCTemperatureKey) -> Double? {
-        readTemperature(key: key.rawValue)
-    }
-
-    /// Read a temperature value (°C) from an arbitrary 4-character SMC key string.
-    /// Useful for probing model-specific keys not covered by the enum.
-    /// Returns `nil` if the key is not supported on this machine.
-    func readArbitraryTemperature(key: String) -> Double? {
-        readTemperature(key: key)
-    }
-
-    /// Discover all available temperature sensor keys dynamically.
+    /// Read a numeric value for an arbitrary SMC key. Returns `nil` if the key
+    /// does not exist or the data type is not recognised.
     ///
-    /// Reads the total key count via the `#KEY` meta-key, then iterates through
-    /// every key by index using `kSMCGetKeyFromIndex`. Any key whose name starts
-    /// with `T` that returns a valid temperature reading (in `sp78`, `flt`, or
-    /// `fpe2` encoding) is included.
-    ///
-    /// - Returns: An array of `(key, displayName, value)` tuples for all live
-    ///            temperature sensors found on this hardware.
-    func discoverTemperatureSensors() -> [(key: String, displayName: String, value: Double)] {
-        var results: [(key: String, displayName: String, value: Double)] = []
+    /// Decoded types:
+    /// - `sp78` (0x73703738): signed fixed-point 7.8 → value / 256
+    /// - `flt ` (0x666C7420): IEEE 754 single-precision float
+    /// - `fpe2` (0x66706532): unsigned fixed-point 14.2 → value / 4
+    /// - `ui8 ` (0x75693820): unsigned 8-bit integer
+    /// - `ui16` (0x75693136): unsigned 16-bit integer
+    /// - `ui32` (0x75693332): unsigned 32-bit integer
+    func getValue(_ key: String) -> Double? {
+        var inp = SMCParamStruct()
+        var out = SMCParamStruct()
+        inp.key   = fourCharCode(key)
+        inp.data8 = UInt8(Self.kSMCGetKeyInfo)
+        guard callSMC(input: &inp, output: &out) == kIOReturnSuccess else { return nil }
 
-        // Step 1: Get the total number of SMC keys from the #KEY meta-key.
-        var countInput  = SMCParamStruct()
-        var countOutput = SMCParamStruct()
-        countInput.key   = fourCharCode("#KEY")
-        countInput.data8 = UInt8(Self.kSMCGetKeyInfo)
+        let dataType = out.keyInfo.dataType
+        inp.keyInfo.dataSize = out.keyInfo.dataSize
+        inp.data8 = UInt8(Self.kSMCGetKeyValue)
+        guard callSMC(input: &inp, output: &out) == kIOReturnSuccess else { return nil }
 
-        guard callSMC(input: &countInput, output: &countOutput) == kIOReturnSuccess else {
-            return results
-        }
-
-        // Now read the actual value: kSMCGetKeyInfo only fills keyInfo fields;
-        // kSMCGetKeyValue is required to populate the bytes with the count.
-        countInput.keyInfo.dataSize = countOutput.keyInfo.dataSize
-        countInput.data8            = UInt8(Self.kSMCGetKeyValue)
-
-        guard callSMC(input: &countInput, output: &countOutput) == kIOReturnSuccess else {
-            return results
-        }
-
-        // The key count is stored big-endian in the first 4 bytes of the output.
-        let keyCount = UInt32(countOutput.bytes.0) << 24
-                     | UInt32(countOutput.bytes.1) << 16
-                     | UInt32(countOutput.bytes.2) << 8
-                     | UInt32(countOutput.bytes.3)
-
-        guard keyCount > 0 else { return results }
-
-        // Step 2: Iterate through all keys by index (cap at maxSMCKeyCount for safety).
-        for i in 0..<min(keyCount, Self.maxSMCKeyCount) {
-            var indexInput  = SMCParamStruct()
-            var indexOutput = SMCParamStruct()
-            indexInput.data8  = UInt8(Self.kSMCGetKeyFromIndex)
-            indexInput.data32 = i
-
-            guard callSMC(input: &indexInput, output: &indexOutput) == kIOReturnSuccess else {
-                continue
-            }
-
-            // Decode the 4-char key from the output's `key` field.
-            let keyCode = indexOutput.key
-            let chars: [Character] = [
-                Character(UnicodeScalar(UInt8((keyCode >> 24) & 0xFF))),
-                Character(UnicodeScalar(UInt8((keyCode >> 16) & 0xFF))),
-                Character(UnicodeScalar(UInt8((keyCode >> 8)  & 0xFF))),
-                Character(UnicodeScalar(UInt8( keyCode        & 0xFF)))
-            ]
-            let keyString = String(chars)
-
-            // Temperature keys start with 'T'.
-            guard keyString.hasPrefix("T") else { continue }
-
-            if let temp = readTemperature(key: keyString) {
-                let name = SMCTemperatureKey(rawValue: keyString)?.displayName ?? keyString
-                results.append((key: keyString, displayName: name, value: temp))
-            }
-        }
-
-        return results
+        return decodeValue(from: out, dataType: dataType)
     }
 
-    // MARK: - Private Helpers
+    /// Read a null-terminated UTF-8 string value for an SMC key (used for fan IDs).
+    func getStringValue(_ key: String) -> String? {
+        var inp = SMCParamStruct()
+        var out = SMCParamStruct()
+        inp.key   = fourCharCode(key)
+        inp.data8 = UInt8(Self.kSMCGetKeyInfo)
+        guard callSMC(input: &inp, output: &out) == kIOReturnSuccess else { return nil }
 
-    private func readTemperature(key keyString: String) -> Double? {
-        var inputStruct  = SMCParamStruct()
-        var outputStruct = SMCParamStruct()
+        let size = Int(out.keyInfo.dataSize)
+        inp.keyInfo.dataSize = out.keyInfo.dataSize
+        inp.data8 = UInt8(Self.kSMCGetKeyValue)
+        guard callSMC(input: &inp, output: &out) == kIOReturnSuccess, size > 0 else { return nil }
 
-        inputStruct.key   = fourCharCode(keyString)
-        inputStruct.data8 = UInt8(Self.kSMCGetKeyInfo)
-
-        guard callSMC(input: &inputStruct, output: &outputStruct) == kIOReturnSuccess else {
-            return nil
+        // Extract up to `size` bytes from the bytes tuple.
+        let raw = withUnsafeBytes(of: out.bytes) { ptr in
+            Array(ptr.prefix(size))
         }
-
-        let dataType = outputStruct.keyInfo.dataType
-
-        // Re-use the key info to read the value.
-        inputStruct.keyInfo.dataSize = outputStruct.keyInfo.dataSize
-        inputStruct.data8            = UInt8(Self.kSMCGetKeyValue)
-
-        guard callSMC(input: &inputStruct, output: &outputStruct) == kIOReturnSuccess else {
-            return nil
-        }
-
-        return decodeTemperature(from: outputStruct, dataType: dataType)
+        return String(bytes: raw.prefix(while: { $0 != 0 }), encoding: .utf8)?
+            .trimmingCharacters(in: .controlCharacters)
     }
 
-    /// Decode a raw SMC output struct into a Celsius temperature using the
-    /// sensor's reported data type.
-    ///
-    /// Supported encodings:
-    /// - `sp78` (`0x73703738`): signed fixed-point 7.8 – the traditional Intel format.
-    /// - `flt ` (`0x666C7420`): big-endian IEEE 754 single-precision float –
-    ///   used by most Apple Silicon temperature sensors.
-    /// - `fpe2` (`0x66706532`): unsigned fixed-point 14.2 – found on some
-    ///   peripheral and ambient sensors.
-    private func decodeTemperature(from output: SMCParamStruct, dataType: UInt32) -> Double? {
+    /// Convenience: read a temperature value (°C), returning nil for implausible readings.
+    func readTemperature(for key: String) -> Double? {
+        guard let v = getValue(key), v > -40, v < 125 else { return nil }
+        return v
+    }
+
+    /// Returns the appropriate fan-mode SMC key for a given fan index.
+    func fanModeKey(_ id: Int) -> String { "F\(id)Md" }
+
+    // MARK: - Private: decode helpers
+
+    private func decodeValue(from output: SMCParamStruct, dataType: UInt32) -> Double? {
         let b = output.bytes
-        let celsius: Double
-
         switch dataType {
         case 0x73703738: // sp78 – signed fixed-point 7.8
             let raw = (Int16(b.0) << 8) | Int16(b.1)
-            celsius = Double(raw) / 256.0
+            return Double(raw) / 256.0
 
-        case 0x666C7420: // flt – IEEE 754 single-precision float (big-endian)
+        case 0x666C7420: // flt  – IEEE 754 single-precision float (big-endian)
             let u = (UInt32(b.0) << 24) | (UInt32(b.1) << 16)
                   | (UInt32(b.2) << 8)  |  UInt32(b.3)
-            celsius = Double(Float(bitPattern: u))
+            return Double(Float(bitPattern: u))
 
         case 0x66706532: // fpe2 – unsigned fixed-point 14.2
             let raw = (UInt16(b.0) << 8) | UInt16(b.1)
-            celsius = Double(raw) / 4.0
+            return Double(raw) / 4.0
+
+        case 0x75693820: // ui8
+            return Double(b.0)
+
+        case 0x75693136: // ui16
+            let raw = (UInt16(b.0) << 8) | UInt16(b.1)
+            return Double(raw)
+
+        case 0x75693332: // ui32
+            let raw = (UInt32(b.0) << 24) | (UInt32(b.1) << 16)
+                    | (UInt32(b.2) << 8)  |  UInt32(b.3)
+            return Double(raw)
 
         default:
             return nil
         }
-
-        // Sanity-check: plausible sensor range −40 … 125 °C
-        guard celsius > -40, celsius < 125 else { return nil }
-        return celsius
     }
 
-    /// Invoke an SMC operation via IOKit using a fixed method selector.
-    /// The operation is determined by the `data8` field in the input struct.
+    private func readRawUInt32(key: String) -> UInt32? {
+        var inp = SMCParamStruct()
+        var out = SMCParamStruct()
+        inp.key   = fourCharCode(key)
+        inp.data8 = UInt8(Self.kSMCGetKeyInfo)
+        guard callSMC(input: &inp, output: &out) == kIOReturnSuccess else { return nil }
+        inp.keyInfo.dataSize = out.keyInfo.dataSize
+        inp.data8 = UInt8(Self.kSMCGetKeyValue)
+        guard callSMC(input: &inp, output: &out) == kIOReturnSuccess else { return nil }
+        let b = out.bytes
+        return (UInt32(b.0) << 24) | (UInt32(b.1) << 16) | (UInt32(b.2) << 8) | UInt32(b.3)
+    }
+
     private func callSMC(input: inout SMCParamStruct, output: inout SMCParamStruct) -> kern_return_t {
         let inputSize  = MemoryLayout<SMCParamStruct>.stride
         var outputSize = MemoryLayout<SMCParamStruct>.stride
-
         return IOConnectCallStructMethod(
-            connection,
-            Self.kSMCHandleYPCEvent,   // Method selector 2: handles all SMC sub-commands
-            &input,  inputSize,
-            &output, &outputSize
+            connection, Self.kSMCHandleYPCEvent,
+            &input, inputSize, &output, &outputSize
         )
     }
 
-    /// Pack a 4-character ASCII string into a `UInt32` big-endian key.
     private func fourCharCode(_ string: String) -> UInt32 {
         var result: UInt32 = 0
-        for (index, char) in string.utf8.prefix(4).enumerated() {
-            result |= UInt32(char) << UInt32((3 - index) * 8)
+        for (i, byte) in string.utf8.prefix(4).enumerated() {
+            result |= UInt32(byte) << UInt32((3 - i) * 8)
         }
         return result
     }
-}
 
-// MARK: - Temperature Reading
-
-/// A single temperature sensor reading.
-struct TemperatureReading: Identifiable {
-    let id   = UUID()
-    let key:   SMCTemperatureKey
-    let value: Double   // °C
-
-    var formattedValue: String {
-        String(format: "%.1f °C", value)
+    private func decodeKey(_ code: UInt32) -> String {
+        let bytes: [UInt8] = [
+            UInt8((code >> 24) & 0xFF),
+            UInt8((code >> 16) & 0xFF),
+            UInt8((code >>  8) & 0xFF),
+            UInt8( code        & 0xFF),
+        ]
+        guard bytes.allSatisfy({ $0 >= 0x20 && $0 < 0x7F }) else { return "" }
+        return String(bytes: bytes, encoding: .ascii) ?? ""
     }
 }
