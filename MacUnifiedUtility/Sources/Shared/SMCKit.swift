@@ -1,12 +1,29 @@
 import Foundation
 import IOKit
 
+// MARK: - SMCError
+
+/// Errors thrown by `SMCKit` typed read/write operations.
+enum SMCError: LocalizedError {
+    case connectionUnavailable
+    case keyNotFound(String)
+    case writeFailed(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .connectionUnavailable:    return "SMC connection is unavailable."
+        case .keyNotFound(let key):     return "SMC key not found: \(key)"
+        case .writeFailed(let key):     return "Failed to write SMC key: \(key)"
+        }
+    }
+}
+
+// MARK: - SMCKit
+
 /// Shared SMC communication layer used by ThermalModule and BatteryModule.
 ///
-/// Provides both read and (experimental) write access to the Apple SMC.
-///
-/// > Warning: Writing to the SMC is experimental and may not work on all
-/// > hardware. Always verify the key exists before writing.
+/// Provides both read and write access to the Apple SMC via typed helpers.
+/// Writing SMC charging keys requires the app to run without App Sandbox.
 final class SMCKit {
 
     // MARK: - IOKit Selectors
@@ -80,9 +97,9 @@ final class SMCKit {
         if connection != 0 { IOServiceClose(connection) }
     }
 
-    // MARK: - Public API
+    // MARK: - Public API — Read
 
-    /// Read a raw double value from an SMC key string.
+    /// Read a raw double (sp78 fixed-point) value from an SMC key string.
     func readDouble(key: String) -> Double? {
         var inputStruct  = SMCParamStruct()
         var outputStruct = SMCParamStruct()
@@ -107,32 +124,62 @@ final class SMCKit {
         return b0 + b1
     }
 
-    /// Experimental: Write a charge-limit percentage to SMC key `BCLM`.
-    ///
-    /// Returns `true` on apparent success, `false` otherwise.
-    /// This uses the `ui8` SMC data type (1-byte unsigned integer).
-    @discardableResult
-    func writeChargeLimitPercent(_ percent: Int) -> Bool {
-        let clampedPercent = min(max(percent, 0), 100)
+    /// Read a single unsigned byte (ui8 / flag) from an SMC key.
+    func readUInt8(_ key: String) -> UInt8? {
         var inputStruct  = SMCParamStruct()
         var outputStruct = SMCParamStruct()
 
-        // Key BCLM = Battery Charge Level Maximum
-        // Step 1: Get key info so we use the correct dataSize from the SMC driver.
-        inputStruct.key   = fourCharCode("BCLM")
+        inputStruct.key   = fourCharCode(key)
         inputStruct.data8 = UInt8(Self.kSMCGetKeyInfo)
 
         guard callSMC(input: &inputStruct, output: &outputStruct) == kIOReturnSuccess else {
-            return false
+            return nil
         }
 
-        // Step 2: Write the value using the dataSize reported by the SMC.
+        inputStruct.keyInfo.dataSize = outputStruct.keyInfo.dataSize
+        inputStruct.data8            = UInt8(Self.kSMCGetKeyValue)
+
+        guard callSMC(input: &inputStruct, output: &outputStruct) == kIOReturnSuccess else {
+            return nil
+        }
+
+        return outputStruct.bytes.0
+    }
+
+    /// Read a boolean flag (non-zero = true) from an SMC key.
+    func readFlag(_ key: String) -> Bool? {
+        guard let value = readUInt8(key) else { return nil }
+        return value != 0
+    }
+
+    // MARK: - Public API — Write
+
+    /// Write a single unsigned byte to an SMC key.
+    func writeUInt8(_ key: String, value: UInt8) throws {
+        var inputStruct  = SMCParamStruct()
+        var outputStruct = SMCParamStruct()
+
+        // Step 1: get key info so we use the correct dataSize from the SMC driver.
+        inputStruct.key   = fourCharCode(key)
+        inputStruct.data8 = UInt8(Self.kSMCGetKeyInfo)
+
+        guard callSMC(input: &inputStruct, output: &outputStruct) == kIOReturnSuccess else {
+            throw SMCError.keyNotFound(key)
+        }
+
+        // Step 2: write the value.
         inputStruct.keyInfo.dataSize = outputStruct.keyInfo.dataSize
         inputStruct.data8            = UInt8(Self.kSMCSetKeyValue)
-        inputStruct.bytes.0          = UInt8(clampedPercent)
+        inputStruct.bytes.0          = value
 
-        let result = callSMC(input: &inputStruct, output: &outputStruct)
-        return result == kIOReturnSuccess
+        guard callSMC(input: &inputStruct, output: &outputStruct) == kIOReturnSuccess else {
+            throw SMCError.writeFailed(key)
+        }
+    }
+
+    /// Write a boolean flag to an SMC key (false → 0, true → 1).
+    func writeFlag(_ key: String, value: Bool) throws {
+        try writeUInt8(key, value: value ? 1 : 0)
     }
 
     // MARK: - Private Helpers

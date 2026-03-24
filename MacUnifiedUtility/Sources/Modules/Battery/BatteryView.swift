@@ -1,172 +1,244 @@
 import SwiftUI
 
-/// SwiftUI view for the Battery module.
+/// Rich SwiftUI view for the Battery module.
 ///
-/// Displays current battery status and an experimental 80% charge-limit toggle.
+/// Shows a detailed power-state snapshot including level, time remaining, cycle count,
+/// health, temperature, capacity, voltage, amperage, and SMC charging control.
 struct BatteryView: View {
 
     @EnvironmentObject private var manager: BatteryManager
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        if !manager.isOnLaptop {
+            EmptyStateView(
+                title: "No Battery",
+                systemImage: "desktopcomputer",
+                description: "This Mac has no internal battery."
+            )
+            .padding()
+            .frame(minWidth: 420, minHeight: 320)
+        } else {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
 
-            // ── Header ────────────────────────────────────────────────
-            SectionHeader(icon: "battery.75", title: "Battery")
+                    // ── Header ─────────────────────────────────────────
+                    SectionHeader(icon: "battery.100percent", title: "Battery")
 
-            // ── Status Card ───────────────────────────────────────────
-            CardView {
-                VStack(alignment: .leading, spacing: 10) {
-                    if let pct = manager.chargePercent {
-                        HStack(spacing: 14) {
-                            // Circular gauge
-                            ZStack {
-                                Circle()
-                                    .stroke(Color.primary.opacity(0.08), lineWidth: 5)
-                                Circle()
-                                    .trim(from: 0, to: CGFloat(pct) / 100.0)
-                                    .stroke(progressColor(percent: pct),
-                                            style: StrokeStyle(lineWidth: 5, lineCap: .round))
-                                    .rotationEffect(.degrees(-90))
-                                Text("\(pct)")
-                                    .font(.system(size: 15, weight: .bold, design: .rounded))
-                                    .foregroundStyle(progressColor(percent: pct))
-                            }
-                            .frame(width: 52, height: 52)
-
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("\(pct)%")
-                                    .font(.system(size: 22, weight: .bold, design: .rounded))
-                                HStack(spacing: 6) {
-                                    TagBadge(
-                                        text: manager.isCharging ? "Charging" : (manager.isPluggedIn ? "Plugged In" : "Discharging"),
-                                        color: manager.isCharging ? .green : (manager.isPluggedIn ? .blue : .orange)
-                                    )
-                                }
-                            }
-
-                            Spacer()
-
-                            Button {
-                                manager.refresh()
-                            } label: {
-                                Image(systemName: "arrow.clockwise")
-                                    .font(.system(size: 12, weight: .medium))
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                        }
-
-                        ProgressView(value: Double(pct), total: 100)
-                            .tint(progressColor(percent: pct))
+                    // ── Main Info Card ─────────────────────────────────
+                    if let state = manager.powerState {
+                        mainInfoCard(state: state)
+                        detailsCard(state: state)
                     } else {
-                        HStack(spacing: 8) {
-                            Image(systemName: "battery.slash")
-                                .foregroundStyle(.secondary)
-                            Text("No battery detected.")
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
-
-            // ── Error/Info Messages ───────────────────────────────────
-            if let error = manager.lastError {
-                ErrorBanner(message: error)
-            }
-            if let message = manager.lastMessage {
-                HStack(spacing: 6) {
-                    Image(systemName: "info.circle")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.blue)
-                    Text(message)
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            // ── Experimental Charge Limit Card ────────────────────────
-            CardView {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "exclamationmark.triangle")
-                            .foregroundStyle(.orange)
-                            .font(.system(size: 13))
-                        Text("Experimental Feature")
-                            .font(.system(size: 13, weight: .semibold))
-                        Spacer()
-                    }
-
-                    Text("Charge limiting writes to the SMC and is **not officially supported by Apple**. Use at your own risk. Not all hardware is supported.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-
-                    Divider()
-
-                    Toggle("Enable charge limit", isOn: $manager.isChargeLimitEnabled)
-                        .font(.system(size: 13))
-
-                    if manager.isChargeLimitEnabled {
-                        HStack {
-                            Text("Limit:")
-                                .font(.system(size: 13))
-                                .foregroundStyle(.secondary)
-                            Slider(value: Binding(
-                                get: { Double(manager.chargeLimitPercent) },
-                                set: { manager.chargeLimitPercent = Int($0) }
-                            ), in: 60...100, step: 5)
-                            Text("\(manager.chargeLimitPercent)%")
-                                .font(.system(size: 13, design: .monospaced))
-                                .frame(width: 40, alignment: .trailing)
-                        }
-                    }
-
-                    // ── Privileges section ─────────────────────────────
-                    if !PrivilegedHelperManager.shared.hasRootAccess {
-                        Divider()
-                        HStack(spacing: 10) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(.blue.opacity(0.12))
-                                    .frame(width: 36, height: 36)
-                                Image(systemName: "lock.shield")
-                                    .font(.system(size: 16, weight: .medium))
-                                    .foregroundStyle(.blue)
-                            }
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Admin Privileges Required")
-                                    .font(.system(size: 13, weight: .semibold))
-                                Text("Charge limiting requires elevated privileges to write to the SMC.")
-                                    .font(.system(size: 11))
+                        CardView {
+                            HStack(spacing: 8) {
+                                Image(systemName: "battery.slash")
+                                    .foregroundStyle(.secondary)
+                                Text("Reading battery data…")
                                     .foregroundStyle(.secondary)
                             }
-                            Spacer()
-                            Button {
-                                PrivilegedHelperManager.shared.installHelper()
-                            } label: {
-                                Label("Install Privileged Helper", systemImage: "shield.lefthalf.filled")
-                                    .font(.system(size: 12, weight: .medium))
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .controlSize(.small)
                         }
+                    }
+
+                    // ── Charging Control ───────────────────────────────
+                    if manager.chargingControlAvailable {
+                        chargingControlCard
+                    } else {
+                        ErrorBanner(
+                            message: "SMC charging control is not available. This feature requires the app to run without system restrictions — charging modes cannot be changed in the current configuration."
+                        )
+                    }
+
+                    Spacer(minLength: 0)
+                }
+                .padding()
+            }
+            .frame(minWidth: 420, minHeight: 380)
+        }
+    }
+
+    // MARK: - Main Info Card
+
+    @ViewBuilder
+    private func mainInfoCard(state: PowerState) -> some View {
+        CardView {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 16) {
+                    // Level percentage
+                    Text("\(state.batteryLevel)%")
+                        .font(.system(size: 36, weight: .bold, design: .rounded))
+                        .foregroundStyle(levelColor(state: state))
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        // Time description
+                        Text(state.timeDescription)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(.primary)
+
+                        // Power source badge
+                        TagBadge(
+                            text: state.powerSource,
+                            color: state.chargerConnected ? .blue : .orange
+                        )
+                    }
+
+                    Spacer()
+
+                    // Charging indicator
+                    if state.isCharging {
+                        Image(systemName: "bolt.fill")
+                            .font(.system(size: 20))
+                            .foregroundStyle(.blue)
+                    }
+                }
+
+                // Color-coded fill bar
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.primary.opacity(0.08))
+                            .frame(height: 8)
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(levelColor(state: state))
+                            .frame(width: geo.size.width * CGFloat(state.batteryLevel) / 100.0, height: 8)
+                            .animation(.easeInOut(duration: 0.3), value: state.batteryLevel)
+                    }
+                }
+                .frame(height: 8)
+
+                // Optimized Battery Charging badge
+                if state.optimizedBatteryChargingEngaged {
+                    HStack(spacing: 4) {
+                        Image(systemName: "leaf.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.green)
+                        Text("Optimized Battery Charging engaged")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
-
-            Spacer()
         }
-        .padding()
-        .frame(minWidth: 420, minHeight: 320)
+    }
+
+    // MARK: - Details Card
+
+    @ViewBuilder
+    private func detailsCard(state: PowerState) -> some View {
+        CardView {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Details")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+
+                Divider()
+
+                detailRow(label: "Cycle Count",
+                          value: "\(state.cycleCount)")
+
+                detailRow(label: "Battery Health",
+                          value: state.batteryHealth.map { "\($0)%" } ?? "Unknown")
+
+                temperatureRow(state: state)
+
+                if let design = state.designCapacity,
+                   let max    = state.maxCapacity,
+                   let current = state.currentCapacity {
+                    detailRow(label: "Capacity (Design / Max / Now)",
+                              value: "\(design) / \(max) / \(current) mAh")
+                }
+
+                if let voltage = state.voltage {
+                    detailRow(label: "Voltage",
+                              value: String(format: "%.3f V", voltage / 1000.0))
+                }
+
+                if let amperage = state.amperage {
+                    detailRow(label: "Amperage",
+                              value: String(format: "%.0f mA", amperage))
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func detailRow(label: String, value: String) -> some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(value)
+                .font(.system(size: 12, design: .monospaced))
+                .foregroundStyle(.primary)
+        }
+    }
+
+    @ViewBuilder
+    private func temperatureRow(state: PowerState) -> some View {
+        HStack {
+            Text("Temperature")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+            Spacer()
+            HStack(spacing: 4) {
+                if state.batteryTemperature >= 40 {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.orange)
+                }
+                Text(formatTemperature(state.batteryTemperature))
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(state.batteryTemperature >= 40 ? .orange : .primary)
+            }
+        }
+    }
+
+    // MARK: - Charging Control Card
+
+    private var chargingControlCard: some View {
+        CardView {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Charging Control")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+
+                Divider()
+
+                Picker("Mode", selection: Binding(
+                    get: { manager.chargingMode },
+                    set: { manager.setChargingMode($0) }
+                )) {
+                    ForEach(ChargingMode.allCases, id: \.self) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                Text(manager.chargingMode.modeDescription)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 
     // MARK: - Helpers
 
-    private func progressColor(percent: Int) -> Color {
-        switch percent {
-        case 21...100: return .green
-        case 11...20:  return .orange
-        default:       return .red
-        }
+    private func levelColor(state: PowerState) -> Color {
+        if state.isCharging   { return .blue }
+        if state.batteryLevel <= 20 { return .red }
+        if state.batteryLevel <= 40 { return .orange }
+        return .green
+    }
+
+    private func formatTemperature(_ celsius: Double) -> String {
+        let measurement = Measurement(value: celsius, unit: UnitTemperature.celsius)
+        let formatter = MeasurementFormatter()
+        formatter.unitOptions = .providedUnit
+        formatter.numberFormatter.maximumFractionDigits = 1
+        return formatter.string(from: measurement)
     }
 }
 
