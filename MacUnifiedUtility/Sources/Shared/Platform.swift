@@ -74,10 +74,15 @@ public enum Platform: String, Codable, Equatable {
     private static func detectFromModel(_ model: String) -> Platform? {
         // M1 identifiers
         let m1Prefixes = ["MacBookPro17,", "MacBookAir10,", "Macmini9,", "iMac21,", "MacPro8,"]
+        // Note: All arrays below are treated as *prefix* matchers (checked via hasPrefix),
+        // except m1Ultra which uses exact equality (checked with ==).
+        // Short model numbers like "Mac14,2" function as exact prefixes: "Mac14,2" won't
+        // accidentally match "Mac14,20" because model identifiers use comma-separated
+        // components (e.g. "Mac14,2" does not start "Mac14,20").
         // M1 Pro / Max (Mac13 = MacBook Pro 14"/16" M1 Pro/Max)
         let m1ProPrefixes = ["MacBookPro18,", "Mac13,"]
-        // M1 Ultra (Mac13,2 = Mac Studio M1 Ultra)
-        let m1Ultra = ["Mac13,2"]
+        // M1 Ultra: exact match (Mac13,2 = Mac Studio M1 Ultra; Mac13, is already Pro/Max)
+        let m1UltraExact = ["Mac13,2"]
         // M2 base
         let m2Prefixes = ["Mac14,2", "Mac14,7", "MacBookAir15,"]
         // M2 Pro / Max
@@ -87,7 +92,7 @@ public enum Platform: String, Codable, Equatable {
         // M4
         let m4Prefixes = ["Mac16,", "MacBookPro22,", "MacBookAir22,"]
 
-        for p in m1Ultra  where model == p          { return .m1Ultra }
+        for p in m1UltraExact where model == p          { return .m1Ultra }
         for p in m1ProPrefixes where model.hasPrefix(p) { return .m1Pro }
         for p in m1Prefixes    where model.hasPrefix(p) { return .m1 }
         for p in m2ProPrefixes where model.hasPrefix(p) { return .m2Pro }

@@ -367,5 +367,5 @@ internal let HIDSensorsList: [Sensor] = [
     Sensor(key: "PMU tdev%",             name: "Power management unit dev %", group: .sensor, type: .temperature, platforms: Platform.all),
     Sensor(key: "PMU tdie%",             name: "Power management unit die %", group: .sensor, type: .temperature, platforms: Platform.all),
     Sensor(key: "gas gauge battery",     name: "Battery",                group: .sensor, type: .temperature, platforms: Platform.all),
-    Sensor(key: "NAND CH% temp",         name: "Disk %",                 group: .GPU,    type: .temperature, platforms: Platform.all),
+    Sensor(key: "NAND CH% temp",         name: "Disk %",                 group: .sensor, type: .temperature, platforms: Platform.all),
 ]

@@ -83,6 +83,11 @@ final class SMCHelper {
 
     // MARK: - Public API
 
+    /// Upper bound on key enumeration. Real Macs typically have 300–700 SMC keys;
+    /// 2 000 is a generous safety cap that prevents runaway iteration on anomalous
+    /// hardware while still covering any plausible firmware expansion.
+    private static let maxSMCKeyCount: UInt32 = 2_000
+
     /// Returns all SMC key strings available on this machine (from `#KEY` + index enumeration).
     func getAllKeys() -> [String] {
         var keys: [String] = []
@@ -90,7 +95,7 @@ final class SMCHelper {
         // Read total key count from the #KEY meta-key.
         guard let count = readRawUInt32(key: "#KEY"), count > 0 else { return keys }
 
-        let cap = min(count, 2_000)
+        let cap = min(count, Self.maxSMCKeyCount)
         for i in 0..<cap {
             var inp = SMCParamStruct()
             var out = SMCParamStruct()

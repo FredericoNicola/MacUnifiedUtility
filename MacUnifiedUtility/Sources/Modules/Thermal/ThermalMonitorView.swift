@@ -111,7 +111,7 @@ private struct SensorGroupSection: View {
             .padding(.horizontal, 4)
 
             VStack(spacing: 5) {
-                ForEach(Array(sensors.enumerated()), id: \.offset) { _, sensor in
+                ForEach(Array(sensors.enumerated()), id: \.element.key) { _, sensor in
                     SensorRow(sensor: sensor)
                 }
             }

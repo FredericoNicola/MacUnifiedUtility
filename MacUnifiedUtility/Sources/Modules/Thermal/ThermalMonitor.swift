@@ -187,8 +187,8 @@ final class ThermalMonitor: ObservableObject {
             list.append(sensor)
         }
 
-        // 4. Fans.
-        if let fanCount = smc.getValue("FNum").map({ Int($0) }), fanCount > 0 {
+        // 4. Fans. FNum is always a whole-number count, so truncating to Int is safe.
+        if let fanCount = smc.getValue("FNum").map({ Int($0) }), fanCount > 0, fanCount <= 16 {
             list += loadFans(fanCount, smc: smc)
         }
 
@@ -446,9 +446,13 @@ final class ThermalMonitor: ObservableObject {
             guard var sensor = sensors[i] as? Sensor else { continue }
 
             var newVal = smc.getValue(sensor.key) ?? sensor.value
-            // Guard against broken M2 CPU sensor readings.
+            // Guard against broken M2 CPU sensor readings where the SMC
+            // transiently reports implausible values (< 10 °C or > 120 °C).
+            // Retain the previous reading rather than propagating noise.
+            let minPlausibleCpuTemp: Double = 10
+            let maxPlausibleCpuTemp: Double = 120
             if sensor.type == .temperature, sensor.group == .CPU,
-               newVal < 10 || newVal > 120 {
+               newVal < minPlausibleCpuTemp || newVal > maxPlausibleCpuTemp {
                 newVal = sensor.value
             }
             sensor.value = newVal
@@ -522,11 +526,6 @@ final class ThermalMonitor: ObservableObject {
            var s = sensors[idx] as? Fan {
             s.value = fastest.value; s.minSpeed = fastest.minSpeed; s.maxSpeed = fastest.maxSpeed
             sensors[idx] = s
-        }
-
-        // PSTR total consumption.
-        if let pstr = sensors.first(where: { $0.key == "PSTR" }), pstr.value > 0 {
-            // (cumulative energy tracking handled next poll via stored time)
         }
 
         // DC In voltage / current cleanup.
