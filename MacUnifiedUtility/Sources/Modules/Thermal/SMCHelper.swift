@@ -260,6 +260,15 @@ final class SMCHelper {
             return results
         }
 
+        // Now read the actual value: kSMCGetKeyInfo only fills keyInfo fields;
+        // kSMCGetKeyValue is required to populate the bytes with the count.
+        countInput.keyInfo.dataSize = countOutput.keyInfo.dataSize
+        countInput.data8            = UInt8(Self.kSMCGetKeyValue)
+
+        guard callSMC(input: &countInput, output: &countOutput) == kIOReturnSuccess else {
+            return results
+        }
+
         // The key count is stored big-endian in the first 4 bytes of the output.
         let keyCount = UInt32(countOutput.bytes.0) << 24
                      | UInt32(countOutput.bytes.1) << 16
